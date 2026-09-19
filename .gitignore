@@ -1,0 +1,32 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+next-env.d.ts
+*.tsbuildinfo
+
+# env files: never commit real values
+.env
+.env*.local
+.env.*
+!.env.example
+
+# vercel
+.vercel
+
+# tests
+/test-results
+/playwright-report
+/blob-report
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+
+# local session logs written by editor tooling: never commit
+CONVERSATION_LOG.md
+CONVERSATION_HISTORY.md
+.claude/
