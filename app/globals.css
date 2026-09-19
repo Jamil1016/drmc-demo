@@ -1,0 +1,910 @@
+@import "tailwindcss";
+@import "react-day-picker/style.css";
+
+/* ─────────────────────────────────────────────────────────────
+   Default (app interior) theme — light. The interior screens
+   (directory, employee profile) render in this. Kept intact;
+   only EXTENDED with the extra neutral + font tokens the ported
+   design-system utilities expect, so nothing downstream breaks.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  /* Whole-app scale: the UI is designed dense and reads best at 90% (user-
+     validated with browser zoom). Viewport units are NOT scaled by zoom, so
+     every vh/vw/svh/dvh length below divides by this var to compensate. */
+  --app-zoom: 0.9;
+  /* Direction A "Clean Product" — cool slate neutrals on white, cyan accent.
+     (Replaced the original warm-beige palette, which read dated for an app.) */
+  --paper: #f8fafc;       /* slate-50 canvas behind cards */
+  --paper-deep: #eef2f6;
+  --card: #ffffff;
+  --card-2: #f8fafc;      /* row hover */
+  --rule: #e7ebf0;
+  --rule-strong: #dfe5ec;
+  --ink: #0f172a;         /* slate-900 */
+  --ink-soft: #334155;    /* slate-700 */
+  --muted: #64748b;       /* slate-500 */
+  --muted-soft: #94a3b8;  /* slate-400 */
+  --signal: #0e7490;      /* cyan-700, readable link/severity on white */
+  --signal-deep: #155e75;
+  --signal-wash: #ecfeff;
+  --weekend-wash: #f5f7ff;       /* between white and indigo-50: weekend report rows (DR Approval) */
+  --weekend-wash-hover: #eef2ff; /* indigo-50 */
+  --ok: #0a7a52;
+  --warn: #8a5a00;
+  --bad: #b23b30;
+  --amber: #8a5a00;
+  --input: #ffffff;
+
+  /* Brand accent (cyan), shared with the sign-in door. Buttons use the deeper
+     cyan-600 with white for contrast; --accent is the lighter dot/focus tone. */
+  --accent: #06b6d4;        /* cyan-500 — dots, focus ring, brand mark */
+  --accent-strong: #0891b2; /* cyan-600 — primary button */
+  --accent-hover: #0e7490;  /* cyan-700 — button hover */
+  --accent-ink: #ffffff;
+  --accent-wash: #cffafe;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.05);
+
+  /* Left sidebar — fixed Example Co navy brand rail (the "dark frame" of the board). */
+  --side-bg: #1e2740;
+  --side-bg-2: #182032;
+  --side-text: #cdd5e6;
+  --side-muted: #9aa6c0;
+  --side-label: #67738f;
+
+  /* Type roles → Plus Jakarta Sans (display + body), Spline mono for data. */
+  --font-display: var(--font-jakarta);
+  --font-body: var(--font-jakarta);
+  --font-mono: var(--font-spline-mono);
+}
+
+/* Expose tokens as Tailwind color + font utilities (bg-paper, text-ink,
+   text-signal, border-rule, text-muted, font-display, font-mono …). */
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-deep: var(--paper-deep);
+  --color-card: var(--card);
+  --color-card-2: var(--card-2);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-muted-soft: var(--muted-soft);
+  --color-signal: var(--signal);
+  --color-signal-deep: var(--signal-deep);
+  --color-signal-wash: var(--signal-wash);
+  --color-amber: var(--amber);
+  --color-input: var(--input);
+
+  --font-display: var(--font-jakarta);
+  --font-sans: var(--font-jakarta);
+  --font-mono: var(--font-spline-mono);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Example Co theme — dark navy + cyan, Plus Jakarta Sans.
+   Scoped to [data-theme="brand"] on the sign-in shell only (the
+   "dark door, light interior" pattern shared with quote-automation).
+   Source: the Example Co Design System used across our internal apps.
+   ───────────────────────────────────────────────────────────── */
+[data-theme="brand"] {
+  --paper: #1e2740;
+  --paper-deep: #242e49;
+  --card: #212b45;
+  --card-2: #283356;
+  --rule: rgba(255, 255, 255, 0.08);
+  --rule-strong: rgba(255, 255, 255, 0.15);
+
+  --ink: #ffffff;
+  --ink-soft: rgba(255, 255, 255, 0.70);
+  --muted: rgba(255, 255, 255, 0.50);
+  --muted-soft: rgba(255, 255, 255, 0.30);
+
+  --signal: #00bcd4;
+  --signal-deep: #26c6da;
+  --signal-wash: rgba(0, 188, 212, 0.14);
+  --weekend-wash: rgba(129, 140, 248, 0.14);
+  --weekend-wash-hover: rgba(129, 140, 248, 0.22);
+  --amber: #fbbf24;
+  --input: #1e2740;
+
+  --r-md: 8px;
+  --r-pill: 999px;
+  --shadow-accent: 0 8px 24px rgba(0, 188, 212, 0.3);
+}
+
+[data-theme="brand"] .font-display {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+  font-variation-settings: normal;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+[data-theme="brand"] .eyebrow {
+  color: var(--signal);
+  letter-spacing: 0.14em;
+}
+
+[data-theme="brand"] ::selection { background: #00bcd4; color: #1e2740; }
+[data-theme="brand"] *:focus-visible { outline: 2px solid #00bcd4; outline-offset: 3px; }
+
+[data-theme="brand"] .btn-signal {
+  background: var(--signal);
+  color: #ffffff;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-accent);
+}
+[data-theme="brand"] .btn-signal:hover {
+  background: var(--signal-deep);
+  box-shadow: var(--shadow-accent);
+}
+
+/* The brand logo PNG is dark line-art; invert it to white on the dark door. */
+[data-theme="brand"] .brand-logo { filter: brightness(0) invert(1); }
+
+/* ─────────────────────────────────────────────────────────────
+   Base
+   ───────────────────────────────────────────────────────────── */
+html, body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+html { zoom: var(--app-zoom); }
+
+body {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-feature-settings: "ss01", "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.font-display {
+  font-family: var(--font-display), system-ui, sans-serif;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+/* Eyebrow — tiny all-caps tracked label above heads. */
+.eyebrow {
+  font-family: var(--font-body), system-ui, sans-serif;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* Hairline rule. */
+.hairline {
+  height: 1px;
+  background: var(--rule-strong);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Buttons (light default; overridden under [data-theme="brand"])
+   ───────────────────────────────────────────────────────────── */
+.btn-signal {
+  background: var(--signal);
+  color: white;
+  font-weight: 500;
+  letter-spacing: -0.005em;
+  transition: background-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
+}
+.btn-signal:hover { background: var(--signal-deep); }
+.btn-signal:active { transform: translateY(1px); }
+/* .btn-signal only sets color/background above (no shape), so a bare `btn-signal`
+   renders as an unshaped blob. Give it the same geometry as .btn-ghost so the
+   dialog Confirm and Connect-account buttons are proper filled buttons. Placed in
+   @layer components so page-level utilities (e.g. the sign-in button's px-6 py-3)
+   still override it. */
+@layer components {
+  .btn-signal {
+    display: inline-flex; align-items: center; gap: 0.35rem;
+    padding: 0.45rem 0.75rem; border-radius: 9px;
+    font-size: 0.8125rem; box-shadow: var(--shadow-sm);
+  }
+  .btn-signal:disabled { opacity: 0.5; }
+}
+
+/* ─────────────────────────────────────────────────────────────
+   First-load staggered entrance
+   ───────────────────────────────────────────────────────────── */
+@keyframes rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.rise {
+  opacity: 0;
+  animation: rise 0.7s cubic-bezier(0.2, 0.7, 0.1, 1) forwards;
+}
+.rise-delay-1 { animation-delay: 0.05s; }
+.rise-delay-2 { animation-delay: 0.18s; }
+.rise-delay-3 { animation-delay: 0.34s; }
+.rise-delay-4 { animation-delay: 0.5s; }
+.rise-delay-5 { animation-delay: 0.66s; }
+
+/* Soft radial fade applied to the hero backdrop field. */
+.field-mask {
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 38%, black 30%, transparent 80%);
+          mask-image: radial-gradient(ellipse 75% 70% at 50% 38%, black 30%, transparent 80%);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Honor reduced motion
+   ───────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  .rise { animation: none; opacity: 1; transform: none; }
+}
+
+/* ═════════════════════════════════════════════════════════════
+   App interior — "Clean Product" (Direction A) on the Monday board
+   structure: navy+cyan rail, white board on cool-slate canvas, soft
+   card elevation, avatars, status pills, gradient KPI band on the
+   approvals overview. Light board, dark rail.
+   ═════════════════════════════════════════════════════════════ */
+
+/* ── Sidebar rail ── */
+.side { background: var(--side-bg); color: var(--side-text); }
+.side-brand { color: #fff; font-weight: 700; letter-spacing: -0.02em; }
+.side-label {
+  font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--side-label);
+}
+/* brand mark + collapse toggle */
+.side-mark { width: 26px; height: 26px; object-fit: contain; flex-shrink: 0; }
+.side-toggle { background: none; border: 0; color: var(--side-muted); cursor: pointer; padding: 6px; border-radius: 8px; display: inline-flex; }
+.side-toggle:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+
+/* filled-pill nav items */
+.nav-pill {
+  display: flex; align-items: center; gap: 0.7rem; position: relative;
+  padding: 0.55rem 0.7rem; margin: 0.15rem 0; border-radius: 10px;
+  color: var(--side-muted); font-size: 0.875rem; font-weight: 500;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.nav-pill svg { width: 18px; height: 18px; flex-shrink: 0; color: #8794ad; }
+.nav-pill:hover { background: rgba(255, 255, 255, 0.05); color: #fff; }
+.nav-pill[data-active="true"] {
+  background: var(--accent); color: #06262e; font-weight: 700;
+  box-shadow: 0 6px 16px rgba(34, 211, 238, 0.3);
+}
+.nav-pill[data-active="true"] svg { color: #06262e; }
+.nav-pill .label { white-space: nowrap; overflow: hidden; }
+
+/* Immediate feedback while the clicked link's navigation is pending. The pill
+   highlights the instant you click (before the server responds) and shows a
+   spinner; :has() lets the child <NavPending> drive the parent's state. */
+.nav-pill:has(.nav-spin):not([data-active="true"]) {
+  background: rgba(255, 255, 255, 0.08); color: #fff;
+}
+.nav-spin {
+  width: 13px; height: 13px; margin-left: auto; flex-shrink: 0;
+  border-radius: 50%; border: 2px solid currentColor; border-top-color: transparent;
+  opacity: 0.85; animation: nav-spin 0.6s linear infinite;
+}
+@keyframes nav-spin { to { transform: rotate(360deg); } }
+
+/* Thin top progress bar shown during every route change. */
+.nav-progress {
+  position: fixed; top: 0; left: 0; right: 0; height: 3px; z-index: 100;
+  pointer-events: none; opacity: 0; transition: opacity 200ms ease;
+}
+.nav-progress[data-state="loading"], .nav-progress[data-state="done"] { opacity: 1; }
+.nav-progress-fill {
+  height: 100%; width: 0;
+  background: linear-gradient(90deg, var(--accent-strong), var(--accent));
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.55);
+}
+.nav-progress[data-state="loading"] .nav-progress-fill {
+  width: 90%; transition: width 8s cubic-bezier(0.1, 0.7, 0.3, 1);
+}
+.nav-progress[data-state="done"] .nav-progress-fill {
+  width: 100%; transition: width 200ms ease;
+}
+.nav-progress[data-state="idle"] .nav-progress-fill { width: 0; transition: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-spin { animation-duration: 1.2s; }
+  .nav-progress-fill, .nav-progress { transition: none; }
+}
+
+/* tooltip — only shown when collapsed */
+.nav-pill .tip {
+  position: absolute; left: 54px; white-space: nowrap;
+  background: #0b1020; color: #fff; font-size: 12px; padding: 5px 9px; border-radius: 7px;
+  border: 1px solid rgba(255, 255, 255, 0.12); opacity: 0; pointer-events: none;
+  transition: opacity 0.12s ease; z-index: 60;
+}
+.side:not([data-collapsed="true"]) .nav-pill .tip { display: none; }
+.side[data-collapsed="true"] .nav-pill:hover .tip { opacity: 1; }
+/* let the tooltip escape the nav's scroll container (overflow-y:auto forces overflow-x clipping) */
+.side[data-collapsed="true"] nav { overflow: visible; }
+
+/* user / sign-out footer */
+.side-foot { display: flex; align-items: center; gap: 0.6rem; padding: 0.85rem 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08); }
+.side-foot .av { width: 32px; height: 32px; border-radius: 50%; background: #0ea5e9; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.side-foot .nm { font-size: 12.5px; color: #e6ecf7; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-foot .rl { font-size: 11px; color: var(--side-label); }
+.side-foot .side-signout { background: none; border: 0; color: var(--side-muted); cursor: pointer; padding: 6px; border-radius: 8px; display: inline-flex; }
+.side-foot .side-signout:hover { background: rgba(255, 255, 255, 0.06); color: #fff; }
+
+/* PHT | ET display-zone toggle (sidebar footer + mobile bar). Segments read as
+   tiny nav pills: accent fill for the active zone, muted text for the other. */
+.side-zone {
+  display: flex; align-items: center; justify-content: space-between; gap: 0.6rem;
+  padding: 0.6rem 1rem; border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+.side-zone .zone-cap { font-size: 11px; color: var(--side-label); white-space: nowrap; }
+.zone-seg {
+  display: inline-flex; padding: 2px; gap: 2px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.zone-seg button {
+  border: 0; background: none; cursor: pointer; border-radius: 999px;
+  padding: 3px 9px; font-size: 11px; font-weight: 600; letter-spacing: 0.04em;
+  color: var(--side-muted); line-height: 1.2;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+.zone-seg button:hover { color: #fff; }
+.zone-seg button[aria-pressed="true"] { background: var(--accent); color: #06262e; font-weight: 700; cursor: default; }
+.zone-seg button:focus-visible, .zone-pill:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.zone-pill {
+  border: 1px solid rgba(255, 255, 255, 0.1); cursor: pointer; border-radius: 999px;
+  padding: 3px 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.06em;
+  background: var(--accent); color: #06262e; line-height: 1.2;
+}
+.zone-pill:hover { filter: brightness(1.08); }
+
+/* collapsed rail */
+.side[data-collapsed="true"] .side-zone { justify-content: center; padding: 0.5rem 0.4rem; }
+.side[data-collapsed="true"] .side-label,
+.side[data-collapsed="true"] .nav-pill .label,
+.side[data-collapsed="true"] .brand-text,
+.side[data-collapsed="true"] .side-mark,
+.side[data-collapsed="true"] .foot-who { display: none; }
+.side[data-collapsed="true"] .nav-pill { justify-content: center; padding: 0.6rem; }
+.side[data-collapsed="true"] .brandrow { justify-content: center; }
+.side[data-collapsed="true"] .side-foot { flex-direction: column; gap: 0.5rem; }
+
+/* ── Page / board header ── */
+.page-title { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.02em; color: var(--ink); }
+.page-count { font-size: 1rem; font-weight: 500; color: var(--muted-soft); margin-left: 0.5rem; }
+.page-desc { font-size: 0.875rem; color: var(--muted); margin-top: 0.2rem; }
+
+/* ── Live auto-refresh badge ── */
+.live-badge {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  font-size: 0.75rem; font-weight: 600; color: var(--muted);
+  background: var(--card-2); border: 1px solid var(--border, rgba(15, 23, 42, 0.08));
+  padding: 0.3rem 0.6rem; border-radius: 999px; white-space: nowrap;
+}
+.live-badge .live-sep { color: var(--muted); font-weight: 500; }
+.live-badge .live-sep strong { color: var(--ink-soft); font-weight: 600; }
+.live-dot {
+  width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+  background: #10b981; /* emerald-500 */
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5);
+  animation: live-pulse 2s ease-out infinite;
+}
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.45); }
+  70%  { box-shadow: 0 0 0 5px rgba(16, 185, 129, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .live-dot { animation: none; }
+}
+/* Stale/reconnecting state: the health probe failed, so the poll is holding
+   the current page instead of risking an error-boundary swap. */
+.live-badge--stale { border-color: #ecd9ab; background: #fdf6e6; color: #92600a; }
+.live-badge--stale .live-sep { color: #92600a; }
+.live-badge--stale .live-sep strong { color: #6b4708; }
+.live-dot--stale { background: #f59e0b; animation: none; box-shadow: none; }
+
+/* ── Buttons ── */
+/* Tailwind v4 preflight no longer sets cursor:pointer on <button>, so buttons
+   show the default arrow (unlike <a>-based buttons such as "Open in the PM API").
+   Restore the pointer for interactive elements; disabled ones keep the arrow. */
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  summary { cursor: pointer; }
+}
+.btn-primary {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  background: var(--accent-strong); color: #fff;
+  font-weight: 600; font-size: 0.8125rem;
+  padding: 0.5rem 0.9rem; border-radius: 9px;
+  box-shadow: var(--shadow-sm);
+  transition: background-color 0.15s ease, transform 0.12s ease;
+}
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:active { transform: translateY(1px); }
+.btn-ghost {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  border: 1px solid var(--rule-strong); color: var(--ink-soft);
+  font-weight: 600; font-size: 0.8125rem;
+  padding: 0.45rem 0.75rem; border-radius: 9px; background: var(--card);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+.btn-ghost:hover { border-color: var(--muted-soft); background: var(--card-2); }
+.btn-danger {
+  display: inline-flex; align-items: center;
+  background: var(--bad); color: #fff; font-weight: 600; font-size: 0.8125rem;
+  padding: 0.5rem 0.9rem; border-radius: 9px;
+}
+
+/* ── Inputs ── */
+.field {
+  width: 100%; background: var(--input);
+  border: 1px solid var(--rule-strong); border-radius: 9px;
+  padding: 0.5rem 0.75rem; font-size: 0.875rem; color: var(--ink);
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.field:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.field::placeholder { color: var(--muted-soft); }
+.field-label { font-size: 0.72rem; font-weight: 600; letter-spacing: 0.02em; color: var(--muted); }
+
+/* ── Date range control ── */
+.daterange-trigger {
+  display: inline-flex; align-items: center; gap: 0.4rem;
+  width: 14rem; max-width: 100%; /* fixed so a long range label never shifts the bar */
+  background: var(--input); border: 1px solid var(--rule-strong);
+  border-radius: 9px; padding: 0.5rem 0.7rem;
+  font-size: 0.875rem; color: var(--ink); text-align: left;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.1s ease;
+}
+.daterange-trigger:hover { border-color: var(--muted-soft); }
+.daterange-trigger:active { transform: scale(0.99); }
+.daterange-trigger[data-active="true"] { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-wash); }
+.daterange-trigger > svg { color: var(--muted); flex-shrink: 0; }
+.daterange-trigger[data-active="true"] > svg { color: var(--accent-strong); }
+.daterange-trigger > span:first-of-type { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.daterange-clear {
+  display: inline-flex; align-items: center; justify-content: center;
+  margin-left: 0.1rem; width: 18px; height: 18px; border-radius: 5px;
+  color: var(--muted); cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+.daterange-clear:hover { background: var(--paper-deep); color: var(--ink); }
+
+.daterange-pop {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 50;
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: 13px; box-shadow: var(--shadow-card);
+  padding: 0.5rem 0.65rem 0.55rem;
+  transform-origin: top left;
+  animation: daterange-in 0.16s cubic-bezier(0.23, 1, 0.32, 1);
+}
+/* Exit: faster than the enter and out of the way (ease-in accelerates away). */
+.daterange-pop[data-closing="true"] { animation: daterange-out 0.13s ease-in forwards; pointer-events: none; }
+@keyframes daterange-in {
+  from { opacity: 0; transform: scale(0.97) translateY(-2px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes daterange-out {
+  from { opacity: 1; transform: scale(1) translateY(0); }
+  to { opacity: 0; transform: scale(0.97) translateY(-2px); }
+}
+.daterange-foot {
+  display: flex; justify-content: space-between; gap: 0.5rem;
+  padding: 0.5rem 0.3rem 0.1rem; border-top: 1px solid var(--rule); margin-top: 0.3rem;
+}
+.daterange-foot .btn-ghost, .daterange-foot .btn-primary { flex: 1; justify-content: center; }
+
+/* Day-of-week chip row at the bottom of the calendar popover (opt-in via
+ * showWeekdays); sits above the Clear/Apply footer. */
+.daterange-dows {
+  display: flex; flex-direction: column; gap: 0.4rem;
+  padding: 0.5rem 0.3rem 0.1rem; border-top: 1px solid var(--rule); margin-top: 0.3rem;
+  max-width: 15.4rem; /* matches the calendar width; the 7 chips fill it as one row */
+}
+.daterange-dows .field-label { padding: 0; }
+/* Default: all 7 weekdays on one row (a fixed 7-column grid stretched to the
+ * calendar width, with compact chips so 3-letter labels fit each 1/7 cell).
+ * The column-header filter uses this. The `--wrap` modifier drops to a
+ * 4-column, two-row layout (4 + 3) with roomier chips, used by the wider
+ * filter bar above the table where a single cramped row read poorly. */
+.weekday-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.3rem; }
+.weekday-grid--wrap { grid-template-columns: repeat(4, 1fr); }
+.chip--dow { padding: 0.3rem 0.1rem; justify-content: center; font-size: 0.75rem; gap: 0; }
+.weekday-grid--wrap .chip--dow { padding: 0.3rem 0.35rem; }
+
+/* react-day-picker — Example Co skin (cyan accent on the slate-on-white palette) */
+.daterange-pop .rdp-root {
+  --rdp-accent-color: var(--accent-strong);
+  --rdp-accent-background-color: var(--accent-wash);
+  --rdp-today-color: var(--accent-strong);
+  --rdp-day-width: 2.1rem; --rdp-day-height: 2.1rem;
+  --rdp-day_button-width: 2.1rem; --rdp-day_button-height: 2.1rem;
+  --rdp-day_button-border-radius: 8px;
+  font-size: 0.85rem; margin: 0;
+}
+.daterange-pop .rdp-day_button { color: var(--ink-soft); transition: background-color 0.12s ease; }
+.daterange-pop .rdp-day_button:hover { background: var(--paper-deep); }
+.daterange-pop .rdp-selected .rdp-day_button { color: #fff; font-weight: 600; }
+.daterange-pop .rdp-range_middle .rdp-day_button { color: var(--ink); }
+.daterange-pop .rdp-caption_label,
+.daterange-pop .rdp-weekday { color: var(--muted); font-weight: 600; }
+/* rdp ships the month/year caption at font-size:large and vertically centers with
+ * align-content (unreliable for a single line), so it reads oversized and misaligned.
+ * Scale it to the calendar and center it against the nav chevrons. */
+.daterange-pop .rdp-month_caption { font-size: 0.9rem; align-items: center; }
+.daterange-pop .rdp-caption_label { font-size: 0.9rem; }
+.daterange-pop .rdp-chevron { fill: var(--muted); }
+/* The month/year pickers are native <select>s (rdp renders them as an opacity:0
+ * overlay). Without an explicit color the open option list is white-on-white, so
+ * force readable colors on both the select and its options. */
+.daterange-pop .rdp-dropdown { color: var(--ink); }
+.daterange-pop .rdp-dropdown option { color: var(--ink); background-color: #fff; }
+
+/* ── Auto-filter pending indicator ── */
+.filter-status {
+  display: inline-flex; align-items: center; gap: 0.35rem;
+  font-size: 0.75rem; color: var(--muted); padding-bottom: 0.55rem;
+  opacity: 0; transition: opacity 0.18s ease; pointer-events: none;
+}
+.filter-status[data-busy="true"] { opacity: 1; }
+.filter-status-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--accent-strong);
+  animation: filter-pulse 0.9s ease-in-out infinite;
+}
+@keyframes filter-pulse { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
+
+/* Slim indeterminate progress bar pinned to the top of the viewport while a
+   filter fetch is in flight. Reads as "refreshing" without blocking input. */
+.filter-progress {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 60; height: 2px;
+  overflow: hidden; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.filter-progress[data-busy="true"] { opacity: 1; }
+.filter-progress::before {
+  content: ""; position: absolute; inset: 0;
+  width: 40%; border-radius: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent-strong), transparent);
+  animation: filter-progress-slide 1s ease-in-out infinite;
+}
+@keyframes filter-progress-slide {
+  from { transform: translateX(-120%); }
+  to { transform: translateX(320%); }
+}
+
+/* Results regions dim + lock while new filtered data loads. The data attribute
+   is toggled on <html> by ApprovalFilters; result containers opt in with
+   .filter-dim so the content stays put and crossfades back. */
+.filter-dim { transition: opacity 0.18s ease, filter 0.18s ease; }
+[data-filtering="true"] .filter-dim {
+  opacity: 0.55; filter: saturate(0.9); pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .daterange-pop { animation: daterange-fade 0.16s ease; }
+  .daterange-pop[data-closing="true"] { animation: none; }
+  .filter-status-dot, .filter-progress::before { animation: none; }
+  .filter-progress::before { width: 100%; }
+}
+@keyframes daterange-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ── Surfaces ── */
+.surface {
+  background: var(--card); border: 1px solid var(--rule);
+  border-radius: 13px; box-shadow: var(--shadow-card);
+}
+
+/* ── Loading skeletons (route loading.tsx). Give a slow trans-Pacific fetch a
+      shaped placeholder instead of a frozen blank screen. ── */
+.skeleton {
+  background: linear-gradient(90deg, var(--rule) 25%, var(--card) 37%, var(--rule) 63%);
+  background-size: 400% 100%;
+  animation: skeleton-shimmer 1.4s ease infinite;
+  border-radius: 8px;
+}
+@keyframes skeleton-shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+@media (prefers-reduced-motion: reduce) { .skeleton { animation: none; } }
+
+/* ── Gradient KPI band (Direction B accent, used on the approvals overview) ── */
+.kpi-band {
+  background: linear-gradient(120deg, #1e2740 0%, #26345c 70%, #1f4a57 100%);
+  color: #fff; border-radius: 16px; padding: 1.5rem 1.75rem;
+  box-shadow: var(--shadow-card);
+}
+.kpi-band-title { font-size: 1.5rem; font-weight: 800; letter-spacing: -0.02em; }
+.kpi-band-desc { color: #aebcdb; font-size: 0.875rem; margin-top: 0.2rem; }
+.kpi-tile {
+  background: rgba(255, 255, 255, 0.07); border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px; padding: 0.8rem 0.95rem;
+}
+.kpi-tile-value { font-size: 1.5rem; font-weight: 800; line-height: 1.1; color: #fff; }
+.kpi-tile-label { font-size: 0.72rem; color: #aebcdb; margin-top: 0.15rem; }
+.kpi-tile[data-tone="amber"] .kpi-tile-value { color: #ffd166; }
+.kpi-tile[data-tone="red"] .kpi-tile-value { color: #ff9b8a; }
+/* Deep-linked tiles (HR Dashboard): the tile itself is an <a>, so restore
+   block layout and drop the underline while keeping the same look/hover lift. */
+.kpi-tile-link { display: block; text-decoration: none; transition: transform 0.12s ease, border-color 0.12s ease; }
+.kpi-tile-link:hover { border-color: rgba(255, 255, 255, 0.28); transform: translateY(-1px); }
+.kpi-tile-sub { font-size: 0.68rem; color: #8fa0c4; margin-top: 0.3rem; }
+/* Period-over-period change chip on a KPI tile (vs the previous equal-length
+   range). Green = improvement, red = worsening, muted = flat — direction is
+   metric-aware (set by the component, not the sign). */
+.kpi-tile-delta { font-size: 0.68rem; font-weight: 600; margin-top: 0.25rem; }
+.kpi-tile-delta[data-tone="good"] { color: #34d399; }
+.kpi-tile-delta[data-tone="bad"] { color: #fca5a5; }
+.kpi-tile-delta[data-tone="flat"] { color: #8fa0c4; }
+
+/* ── Data table ── */
+.data-table { width: 100%; border-collapse: collapse; font-size: 0.875rem; }
+.data-table thead th {
+  text-align: left; font-weight: 600; font-size: 0.7rem;
+  text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--muted-soft); padding: 0.7rem 1rem;
+  background: #fcfdfe; border-bottom: 1px solid var(--rule); white-space: nowrap;
+}
+.data-table tbody td { padding: 0.75rem 1rem; border-bottom: 1px solid #f1f4f8; color: var(--ink-soft); }
+.data-table tbody tr:last-child td { border-bottom: none; }
+.data-table tbody tr { transition: background-color 0.12s ease; }
+.data-table tbody tr:hover { background: var(--card-2); }
+.data-table .cell-strong { font-weight: 600; color: var(--ink); }
+/* fixed layout: columns line up identically across every grouped table */
+.data-table.table-fixed { table-layout: fixed; }
+.data-table.table-fixed td { overflow: hidden; text-overflow: ellipsis; }
+.name-text { overflow: hidden; text-overflow: ellipsis; }
+.table-scroll { overflow-x: auto; }
+/* Browse: the table body scrolls inside this fixed-height card while the column
+ * header stays pinned to the top. The card is an explicit scroll container, so the
+ * sticky header references it deterministically (no dependence on ancestor overflow).
+ * Height is viewport-based so the filters above stay visible; short lists just fit.
+ * Also restores horizontal scroll for narrow screens. */
+.browse-viewport { max-height: calc(100dvh / var(--app-zoom, 1) - 15.5rem); overflow: auto; }
+/* border-collapse drops the header border when stuck, so a box shadow carries the
+ * divider; thead th already has a solid background so rows do not show through. */
+.data-table--sticky thead th { position: sticky; top: 0; z-index: 3; box-shadow: inset 0 -1px 0 var(--rule); }
+
+/* ── Avatar ── */
+.avatar {
+  width: 26px; height: 26px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 0.66rem; font-weight: 700; color: #fff; flex-shrink: 0;
+}
+.name-cell { display: flex; align-items: center; gap: 0.6rem; white-space: nowrap; min-width: 0; }
+
+/* ── Board group header (subtle colored dot + name + count badge) ── */
+.group-bar { display: flex; align-items: center; gap: 0.6rem; margin: 0 0 0.6rem; }
+.group-dot { width: 9px; height: 9px; border-radius: 3px; }
+.group-name { font-weight: 600; font-size: 0.875rem; color: var(--ink); }
+.group-count {
+  font-size: 0.7rem; font-weight: 600; color: var(--muted);
+  background: var(--paper-deep); border-radius: 20px; padding: 0.05rem 0.55rem;
+}
+.group-dot[data-color="0"] { background: #06b6d4; }
+.group-dot[data-color="1"] { background: #8b5cf6; }
+.group-dot[data-color="2"] { background: #10b981; }
+.group-dot[data-color="3"] { background: #f59e0b; }
+.group-dot[data-color="4"] { background: #0ea5e9; }
+.group-dot[data-color="5"] { background: #ec4899; }
+.group-dot[data-color="6"] { background: #14b8a6; }
+.group-dot[data-color="7"] { background: #6366f1; }
+
+/* ── Weekend report rows (DR Approval) ──
+   Lavender so it never reads as a lighter shade of the cyan selection states.
+   Declared BEFORE the selection rules below so drawer-open / checked rows keep
+   their cyan; the red batch-failure wash is inline and wins over everything. */
+.data-table tbody tr[data-weekend="true"] { background: var(--weekend-wash); }
+.data-table tbody tr[data-weekend="true"]:hover { background: var(--weekend-wash-hover); }
+.weekend-tag {
+  margin-left: 0.4rem; font-size: 0.66rem; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: #4f46e5; vertical-align: 1px;
+}
+[data-theme="brand"] .weekend-tag { color: #a5b4fc; }
+
+/* ── Clickable rows + selection (browse detail drawer) ── */
+.row-clickable { cursor: pointer; }
+.data-table tbody tr[data-selected="true"] { background: var(--accent-wash); }
+.data-table tbody tr[data-selected="true"]:hover { background: var(--accent-wash); }
+/* Checkbox-selected rows: subtle tint so checked rows read as different from
+   unchecked ones (lighter than the drawer-open --accent-wash highlight). */
+.data-table tbody tr[data-checked="true"] { background: var(--signal-wash); }
+.data-table tbody tr[data-checked="true"]:hover { background: var(--signal-wash); }
+
+/* ── Slide-over detail drawer ── */
+.drawer-overlay {
+  position: fixed; inset: 0; z-index: 40;
+  background: rgba(15, 23, 42, 0.35);
+  animation: drawer-fade 0.2s ease;
+}
+.drawer-panel {
+  position: fixed; top: 0; right: 0; z-index: 41;
+  height: calc(100svh / var(--app-zoom, 1)); width: min(540px, calc(94vw / var(--app-zoom, 1)));
+  /* Safety net: the JS-set inline width overrides the rule above, so cap it
+     here too — a stale width after a window resize must never push the panel
+     (and its drag handle) past the viewport. */
+  max-width: calc(95vw / var(--app-zoom, 1));
+  background: var(--card); border-left: 1px solid var(--rule);
+  box-shadow: -8px 0 30px rgba(15, 23, 42, 0.12);
+  overflow-y: auto;
+  animation: drawer-in 0.22s cubic-bezier(0.2, 0.7, 0.1, 1);
+}
+/* Drag handle on the left edge to resize the drawer width. */
+.drawer-resize {
+  position: absolute; top: 0; left: 0; z-index: 42;
+  width: 8px; height: 100%;
+  cursor: col-resize; touch-action: none;
+  background: transparent;
+}
+.drawer-resize::before {
+  content: ""; position: absolute; top: 0; left: 0; bottom: 0;
+  width: 2px; background: transparent; transition: background 0.15s ease;
+}
+.drawer-resize:hover::before,
+.drawer-resize[data-dragging="true"]::before { background: var(--accent-strong); }
+/* While dragging, suppress the slide-in animation and text selection. */
+.drawer-panel[data-resizing="true"] { animation: none; }
+body[data-drawer-resizing="true"] { cursor: col-resize; user-select: none; }
+@keyframes drawer-in { from { transform: translateX(100%); } to { transform: translateX(0); } }
+@keyframes drawer-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) {
+  .drawer-panel, .drawer-overlay { animation: none; }
+}
+
+/* ── Report drawer: Attachments section (thumbnails + lightbox) ── */
+.attach-thumb {
+  position: relative; display: block;
+  width: 120px; height: 90px; padding: 0;
+  border: 1px solid var(--rule); border-radius: 8px; overflow: hidden;
+  background: var(--card-2); color: inherit; cursor: pointer; text-decoration: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.attach-thumb:hover, .attach-thumb:focus-visible {
+  border-color: var(--accent-strong); box-shadow: 0 0 0 2px var(--signal-wash); outline: none;
+}
+.attach-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.attach-thumb-skeleton { cursor: default; animation: attach-pulse 1.2s ease-in-out infinite; }
+@keyframes attach-pulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+.attach-badge {
+  position: absolute; left: 6px; bottom: 6px;
+  font-size: 10px; font-weight: 600; letter-spacing: 0.02em; line-height: 1;
+  padding: 3px 6px; border-radius: 999px;
+  background: rgba(15, 23, 42, 0.72); color: #fff;
+}
+.attach-expand {
+  position: absolute; right: 6px; top: 6px;
+  width: 20px; height: 20px; display: grid; place-items: center;
+  font-size: 12px; line-height: 1; border-radius: 6px;
+  background: rgba(15, 23, 42, 0.72); color: #fff;
+  opacity: 0; transition: opacity 0.15s ease;
+}
+.attach-thumb:hover .attach-expand, .attach-thumb:focus-visible .attach-expand { opacity: 1; }
+.attach-file { display: flex; flex-direction: column; justify-content: center; gap: 4px; padding: 10px 10px 22px; }
+.attach-ext { font-size: 11px; font-weight: 700; letter-spacing: 0.06em; color: var(--accent-strong); }
+.attach-name { font-size: 11px; color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lightbox-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 44px; height: 64px; display: grid; place-items: center;
+  font-size: 34px; line-height: 1; color: #fff;
+  background: rgba(15, 23, 42, 0.55); border: 0; border-radius: 8px; cursor: pointer;
+}
+.lightbox-nav:hover { background: rgba(15, 23, 42, 0.85); }
+@media (prefers-reduced-motion: reduce) { .attach-thumb-skeleton { animation: none; } }
+
+/* ── Confirmation modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 50;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: 1rem;
+  animation: drawer-fade 0.15s ease;
+}
+.modal-card { width: min(440px, calc(96vw / var(--app-zoom, 1))); }
+@media (prefers-reduced-motion: reduce) { .modal-overlay { animation: none; } }
+
+/* ── Back-to-top floating button ── */
+.back-to-top {
+  position: fixed; right: 1.25rem; bottom: 1.25rem; z-index: 30;
+  display: inline-flex; align-items: center; gap: 0.3rem;
+  background: var(--accent-strong); color: #fff;
+  font-size: 0.8125rem; font-weight: 600;
+  padding: 0.55rem 0.9rem; border-radius: 999px;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.18);
+  cursor: pointer; transition: background-color 0.15s ease;
+}
+.back-to-top:hover { background: var(--accent-hover); }
+
+/* ── Status pills (soft tints) ── */
+.pill { display: inline-flex; align-items: center; font-weight: 600; font-size: 0.75rem; padding: 0.15rem 0.65rem; border-radius: 999px; white-space: nowrap; }
+.pill-ok { background: #e7f8f0; color: #0a7a52; }
+.pill-bad { background: #fdeceb; color: #b23b30; }
+.pill-warn { background: #fdf0d9; color: #8a5a00; }
+.pill-info { background: #e6f1fe; color: #1e40af; }
+.pill-neutral { background: #eef2f6; color: #5b6478; }
+
+/* ── HR Dashboard (/hr) ── */
+/* Row items stretch (grid default) so the left column matches the taller
+   carrier-group card's height; the left column's two trend charts then split
+   that height evenly (flex: 1 each) instead of leaving a gap at the bottom. */
+.hr-dashboard-grid { display: grid; grid-template-columns: 1.6fr 1fr; gap: 1.1rem; }
+.hr-dashboard-grid > * { min-width: 0; }
+.hr-dashboard-left { display: flex; flex-direction: column; gap: 1.1rem; min-width: 0; }
+.hr-dashboard-left > * { flex: 1; }
+@media (max-width: 900px) {
+  .hr-dashboard-grid { grid-template-columns: 1fr; }
+}
+
+/* Late+missing trend: stacked bars, position:relative so the "still maturing"
+   hatch overlay (an ::after) can cover the exact bar it belongs to. */
+.trend-bar { position: relative; }
+.trend-bar[data-maturing="true"] { opacity: 0.35; }
+.trend-bar[data-maturing="true"]::after {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background-image: repeating-linear-gradient(45deg, rgba(255, 255, 255, 0.45) 0 4px, transparent 4px 8px);
+}
+.trend-hatch-swatch {
+  width: 8px; height: 8px; border-radius: 2px; display: inline-block;
+  background-color: var(--muted-soft);
+  background-image: repeating-linear-gradient(45deg, rgba(0, 0, 0, 0.35) 0 2px, transparent 2px 4px);
+}
+
+/* Shared trend-chart axes (LateMissingTrend + FilingLagTrend). */
+/* Horizontal gridlines behind the plot; 0-line a touch stronger. Labels sit
+   at the left on a card-colored chip so they read over bars without stealing
+   layout width (keeps the two charts column-aligned). */
+.trend-gridline {
+  position: absolute; left: 0; right: 0; height: 0;
+  border-top: 1px dashed var(--rule);
+}
+.trend-gridline:first-child { border-top-style: solid; border-top-color: var(--rule-strong); }
+.trend-gridline-label {
+  position: absolute; left: 0; top: -0.55rem; padding: 0 0.2rem;
+  font-size: 0.6rem; line-height: 1; color: var(--muted); background: var(--card);
+}
+/* One label cell per day; overflow visible so a label can spill into the empty
+   neighbor cells (only ~every 5th day is labeled). */
+.trend-dateaxis { display: flex; gap: 3px; margin-top: 6px; }
+.trend-dateaxis-cell {
+  flex: 1; min-width: 0; overflow: visible; white-space: nowrap; text-align: center;
+  font-size: 0.6rem; line-height: 1; color: var(--muted);
+}
+/* Non-working-day (weekend) column: a faint full-height wash behind the bar so
+   its lower volume isn't misread as an improvement dip. */
+.trend-day[data-weekend="true"] { background: rgba(100, 116, 139, 0.06); }
+
+/* Unfiled-backlog card: proportional stacked age bar. */
+.backlog-card { transition: border-color 0.12s ease; }
+.backlog-bar { display: flex; height: 14px; border-radius: 4px; overflow: hidden; gap: 1px; background: var(--rule); }
+.backlog-bar > div { min-width: 3px; }
+
+/* Group late-rate rows: whole row is a link to the filtered table. */
+.group-rate-row {
+  display: block; padding: 0.6rem 0.1rem; border-bottom: 1px solid var(--rule);
+  text-decoration: none; color: inherit; transition: background-color 0.12s ease;
+}
+.group-rate-row:last-child { border-bottom: none; }
+.group-rate-row:hover { background: var(--card-2); }
+
+/* Home "Your groups" breakdown: hover/focus affordance for the link-ified rows. */
+.group-breakdown-row { transition: background-color 0.12s ease; }
+.group-breakdown-row:hover { background: var(--card-2); }
+.group-breakdown-row:focus-visible { outline: 2px solid var(--signal); outline-offset: 2px; }
+.group-rate-meter { height: 6px; border-radius: 3px; background: var(--rule); margin-top: 6px; overflow: hidden; }
+.group-rate-meter-fill { height: 100%; background: #c9564a; border-radius: 3px; }
+
+/* ── Filter / choice chips ── */
+.chip {
+  display: inline-flex; align-items: center; gap: 0.4rem; cursor: pointer;
+  font-size: 0.8125rem; font-weight: 500; color: var(--ink-soft);
+  background: var(--card); border: 1px solid var(--rule-strong);
+  padding: 0.35rem 0.75rem; border-radius: 999px; white-space: nowrap;
+  transition: background-color 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+.chip:hover { border-color: var(--muted-soft); }
+.chip-count { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }
+.chip[data-active="true"] { color: #fff; border-color: var(--signal); background: var(--signal); }
+.chip[data-active="true"][data-tone="warn"] { border-color: var(--warn); background: var(--warn); }
+.chip[data-active="true"][data-tone="bad"] { border-color: var(--bad); background: var(--bad); }
+.chip[data-active="true"][data-tone="info"] { border-color: #1e40af; background: #1e40af; }
+.chip[data-active="true"] .chip-count { color: rgba(255, 255, 255, 0.85); }

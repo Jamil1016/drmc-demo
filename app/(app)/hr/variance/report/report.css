@@ -1,0 +1,260 @@
+/* Management report styles, scoped under .variance-report so they cannot
+ * leak into the app shell. */
+
+/* ---- Example Co Design System tokens (light) ---- */
+.variance-report{
+  --paper:#f8fafc; --paper-deep:#eef2f6; --card:#ffffff; --card-2:#f8fafc;
+  --rule:#e7ebf0; --rule-strong:#dfe5ec;
+  --ink:#0f172a; --ink-soft:#334155; --muted:#64748b; --muted-soft:#94a3b8;
+  --accent:#06b6d4; --accent-strong:#0891b2; --accent-hover:#0e7490; --accent-wash:#cffafe;
+  --signal:#0e7490; --signal-wash:#ecfeff;
+  --ok:#0a7a52; --warn:#8a5a00; --bad:#b23b30; --amber:#8a5a00;
+  --side-bg:#1e2740; --side-bg-2:#182032; --side-text:#cdd5e6; --side-muted:#9aa6c0; --side-label:#67738f;
+  --shadow-card:0 1px 2px rgba(15,23,42,.04), 0 4px 12px rgba(15,23,42,.05);
+  --r-md:8px; --r-lg:12px; --r-pill:999px;
+  /* --font-jakarta is inherited from the global registered variable set on
+   * <html> in app/layout.tsx (next/font hashed family, NOT the literal
+   * "Plus Jakarta Sans" string, which next/font never registers and which
+   * silently falls back to Segoe UI). Do not redefine it here. */
+  --font-mono:var(--font-spline-mono),"JetBrains Mono",ui-monospace,monospace;
+}
+
+.variance-report, .variance-report *{box-sizing:border-box;}
+.variance-report{
+  font-family:var(--font-jakarta);
+  color:var(--ink);
+  background:var(--paper-deep);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.45;
+}
+.variance-report .num{font-family:var(--font-mono);font-feature-settings:"tnum";}
+
+/* ---- Page frame (Letter portrait) ---- */
+.variance-report .page{
+  width:8.5in; min-height:11in;
+  margin:18px auto; padding:0;
+  background:var(--card);
+  box-shadow:var(--shadow-card);
+  position:relative; overflow:hidden;
+  border:1px solid var(--rule);
+}
+.variance-report .pad{padding:0.55in 0.6in 0.5in;}
+
+/* ---- Cover page ---- */
+.variance-report .page.cover{
+  background:linear-gradient(160deg,var(--side-bg),var(--side-bg-2));
+  color:#fff; display:flex; flex-direction:column;
+}
+.variance-report .cover-body{flex:1;display:flex;flex-direction:column;justify-content:center;padding:0 0.9in;}
+.variance-report .cover .logo-mark{width:56px;height:56px;margin-bottom:28px;}
+.variance-report .cover-eyebrow{font-size:11px;letter-spacing:.24em;color:var(--side-muted);text-transform:uppercase;font-weight:700;}
+.variance-report .cover-title{font-size:40px;font-weight:800;letter-spacing:-.02em;margin-top:6px;color:#fff;line-height:1.1;}
+.variance-report .cover-sub{font-size:16px;color:var(--side-text);font-weight:600;margin-top:2px;}
+.variance-report .cover-period{
+  margin-top:36px;border-left:3px solid var(--accent);
+  background:rgba(255,255,255,.04);border-radius:0 var(--r-md) var(--r-md) 0;
+  padding:12px 18px;align-self:flex-start;
+}
+.variance-report .cover-period .lbl{font-size:10px;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--side-muted);}
+.variance-report .cover-period .rng{font-family:var(--font-mono);font-size:22px;font-weight:700;color:#fff;margin-top:4px;}
+.variance-report .cover-scope{display:flex;flex-wrap:wrap;gap:8px;margin-top:28px;}
+.variance-report .cover-scope .chip{background:rgba(255,255,255,.06);border-color:rgba(255,255,255,.16);color:var(--side-text);}
+.variance-report .cover-scope .chip b{color:#fff;}
+.variance-report .cover .gen{margin-top:26px;color:var(--side-muted);font-size:10.5px;}
+.variance-report .cover .foot{border-top:1px solid rgba(255,255,255,.12);color:var(--side-muted);}
+
+/* ---- Masthead ---- */
+.variance-report .masthead{
+  display:flex; align-items:center; justify-content:space-between;
+  background:linear-gradient(135deg,var(--side-bg),var(--side-bg-2));
+  color:#fff; padding:20px 0.6in; margin:0;
+}
+.variance-report .mast-left{display:flex; align-items:center; gap:14px;}
+.variance-report .logo-mark{
+  width:42px;height:42px;border-radius:10px;
+  background:#fff;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 4px 14px rgba(0,0,0,.25);padding:5px;
+}
+.variance-report .logo-mark img{width:100%;height:100%;object-fit:contain;display:block;}
+.variance-report .mast-eyebrow{font-size:10.5px;letter-spacing:.22em;color:var(--side-muted);text-transform:uppercase;font-weight:700;}
+.variance-report .mast-title{font-size:20px;font-weight:800;letter-spacing:-.01em;margin-top:1px;}
+.variance-report .mast-right{text-align:right;font-size:11px;color:var(--side-text);}
+.variance-report .mast-right .gen{color:var(--side-muted);font-size:10px;margin-top:3px;}
+
+/* ---- Scope line ---- */
+.variance-report .scope{
+  display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+  padding:12px 0.6in; background:var(--card-2); border-bottom:1px solid var(--rule);
+  font-size:11px; color:var(--ink-soft);
+}
+.variance-report .chip{
+  background:#fff;border:1px solid var(--rule-strong);border-radius:var(--r-pill);
+  padding:3px 10px;font-size:10.5px;color:var(--ink-soft);font-weight:600;
+}
+.variance-report .chip b{color:var(--ink);}
+
+/* ---- Section head ---- */
+.variance-report .sec-head{display:flex;align-items:baseline;gap:10px;margin:0 0 12px;}
+.variance-report .sec-kicker{font-size:10px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-strong);}
+.variance-report .sec-title{font-size:15px;font-weight:800;color:var(--ink);letter-spacing:-.01em;}
+.variance-report .sec-sub{font-size:11px;color:var(--muted);margin-left:auto;}
+
+/* ---- KPI strip ---- */
+.variance-report .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px;}
+.variance-report .kpi{
+  border:1px solid var(--rule);border-radius:var(--r-lg);padding:13px 14px;background:#fff;
+  box-shadow:var(--shadow-card);
+}
+.variance-report .kpi .lab{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--muted);text-transform:uppercase;}
+.variance-report .kpi .val{font-family:var(--font-mono);font-size:26px;font-weight:700;color:var(--ink);margin-top:6px;line-height:1;}
+.variance-report .kpi .val small{font-size:14px;color:var(--muted);font-weight:600;}
+.variance-report .kpi .sub{font-size:10px;color:var(--muted);margin-top:6px;}
+.variance-report .delta{font-family:var(--font-mono);font-size:11px;font-weight:700;padding:1px 7px;border-radius:var(--r-pill);display:inline-block;margin-top:8px;}
+.variance-report .delta.up-bad{background:#fdecea;color:var(--bad);}
+.variance-report .delta.down-good{background:#e7f6ef;color:var(--ok);}
+.variance-report .delta.flat{background:var(--paper-deep);color:var(--muted);}
+
+/* ---- Trend chart ---- */
+.variance-report .panel{border:1px solid var(--rule);border-radius:var(--r-lg);background:#fff;padding:14px 16px;margin-bottom:22px;box-shadow:var(--shadow-card);}
+.variance-report .panel-t{font-size:12px;font-weight:700;color:var(--ink);}
+.variance-report .panel-legend{font-size:10px;color:var(--muted);}
+.variance-report .chart-wrap{position:relative;margin-top:8px;}
+
+/* ---- Monthly average variance strip ---- */
+.variance-report .monthly-strip{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;}
+.variance-report .monthly-strip .mo{
+  display:inline-flex;align-items:baseline;gap:8px;
+  background:var(--card-2);border:1px solid var(--rule-strong);border-radius:var(--r-md);
+  padding:5px 12px;font-size:11px;color:var(--ink-soft);
+}
+.variance-report .monthly-strip .mo b{color:var(--ink);}
+.variance-report .monthly-strip .part{color:var(--muted);font-size:10px;}
+.variance-report .monthly-strip .stat{font-family:var(--font-mono);font-weight:600;color:var(--ink-soft);}
+.variance-report .monthly-strip .stat + .stat{border-left:1px solid var(--rule-strong);padding-left:8px;}
+
+/* ---- Tables ---- */
+.variance-report table{width:100%;border-collapse:collapse;font-size:11px;}
+.variance-report thead th{
+  text-align:left;font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--muted);padding:8px 10px;border-bottom:2px solid var(--rule-strong);
+}
+.variance-report thead th.r, .variance-report tbody td.r{text-align:right;font-family:var(--font-mono);}
+.variance-report tbody td{padding:8px 10px;border-bottom:1px solid var(--rule);color:var(--ink-soft);}
+.variance-report tbody tr:nth-child(even){background:var(--card-2);}
+.variance-report tbody td b{color:var(--ink);}
+.variance-report .rag{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:10.5px;}
+.variance-report .dot{width:9px;height:9px;border-radius:50%;display:inline-block;}
+.variance-report .dot.red{background:var(--bad);} .variance-report .dot.amber{background:#d1962b;} .variance-report .dot.green{background:var(--ok);}
+.variance-report .grp-name{font-weight:700;color:var(--ink);}
+
+/* ---- Bottom line ---- */
+.variance-report .bottomline{
+  border-left:3px solid var(--accent);background:var(--signal-wash);
+  border-radius:0 var(--r-md) var(--r-md) 0;padding:12px 14px;margin-top:4px;font-size:11.5px;color:var(--ink-soft);
+}
+.variance-report .bottomline b{color:var(--ink);}
+.variance-report .cost-slot{margin-top:10px;font-size:10.5px;color:var(--muted);font-style:italic;border:1px dashed var(--rule-strong);border-radius:var(--r-md);padding:8px 12px;}
+
+/* ---- Concentration bar ---- */
+.variance-report .conc{display:flex;align-items:center;gap:14px;margin-bottom:14px;}
+.variance-report .conc .big{font-family:var(--font-mono);font-size:30px;font-weight:700;color:var(--accent-strong);}
+.variance-report .conc .txt{font-size:11px;color:var(--ink-soft);}
+.variance-report .stackbar{height:14px;border-radius:var(--r-pill);overflow:hidden;display:flex;border:1px solid var(--rule);margin-top:8px;}
+.variance-report .stackbar i{display:block;height:100%;}
+
+/* ---- two-col ---- */
+.variance-report .twocol{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:22px;}
+
+/* ---- caveats ---- */
+.variance-report .caveats{background:var(--paper-deep);border:1px solid var(--rule);border-radius:var(--r-md);padding:12px 14px;font-size:10px;color:var(--muted);line-height:1.55;}
+.variance-report .caveats b{color:var(--ink-soft);}
+.variance-report .caveats ul{margin:6px 0 0;padding-left:16px;}
+
+/* ---- named-members appendix notice ---- */
+.variance-report .demo-notice{
+  background:#fff1f0;border:1px solid #f4c7c3;color:var(--bad);
+  font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  padding:7px 12px;border-radius:var(--r-md);margin-bottom:14px;display:flex;gap:8px;align-items:center;
+}
+.variance-report .up{color:var(--ok);font-weight:700;} .variance-report .down{color:var(--bad);font-weight:700;}
+
+/* Inline-SVG trend/change arrows (see Arrow in VarianceReport.tsx): sits on
+ * the text baseline like the glyph it replaces. */
+.variance-report .arrow-ic{display:inline-block;vertical-align:-0.5px;}
+
+.variance-report .foot{display:flex;justify-content:space-between;font-size:9px;color:var(--muted-soft);padding:10px 0.6in;border-top:1px solid var(--rule);}
+
+/* box plot mini */
+.variance-report .boxrow{display:grid;grid-template-columns:80px 1fr 120px;align-items:center;gap:10px;margin:9px 0;font-size:11px;}
+.variance-report .boxtrack{position:relative;height:26px;background:var(--card-2);border:1px solid var(--rule);border-radius:6px;overflow:hidden;}
+.variance-report .breachband{position:absolute;top:0;bottom:0;background:rgba(178,59,48,.07);border-left:1px dashed rgba(178,59,48,.5);}
+.variance-report .box{position:absolute;top:5px;bottom:5px;background:var(--accent-wash);border:1px solid var(--accent-strong);border-radius:3px;}
+.variance-report .medline{position:absolute;top:3px;bottom:3px;width:2px;background:var(--accent-hover);}
+.variance-report .whisk{position:absolute;top:50%;height:1px;background:var(--muted-soft);}
+.variance-report .boxmeta{font-family:var(--font-mono);font-size:10px;color:var(--muted);text-align:right;}
+
+/* A subtle band
+ * where the appendix watchlist's breach status flips from true to false
+ * between consecutive rows, per task-4-brief step 3. */
+.variance-report .brch-flip td{border-top:2px solid var(--rule-strong);}
+
+/* Unscoped on purpose: this stylesheet is imported ONLY by the report route
+ * (app/(app)/hr/variance/report/page.tsx), so these global print rules can't
+ * leak onto any other route. They hide the app shell from app/(app)/layout.tsx
+ * (sidebar + demo banner + preview banner) and strip the padded main column
+ * so the report's own .page frame prints edge-to-edge instead of the app
+ * chrome + a clipped, padded report. Selectors match the real markup in
+ * app/(app)/layout.tsx, components/layout/Sidebar.tsx, and
+ * components/layout/PreviewBanner.tsx (verified, not invented). */
+@media print{
+  /* Sidebar: both the desktop <aside class="side ..."> rail and the mobile
+   * <header class="side md:hidden"> top bar share the "side" class. */
+  .side{display:none !important;}
+  /* PreviewBanner's root <div role="status"> (preview mode). */
+  main [role="status"]{display:none !important;}
+  /* The persistent demo banner at the top of <main>. */
+  main [data-testid="demo-banner"]{display:none !important;}
+  /* Reset the app shell's main content wrapper so the report prints
+   * edge-to-edge: <main className="min-w-0 flex-1"> and its padded child
+   * <div className="w-full px-5 pb-6 pt-5 md:px-8 md:pb-8">{children}</div>. */
+  main.min-w-0.flex-1, main > div.w-full{
+    display:block !important;
+    padding:0 !important;
+    margin:0 !important;
+    max-width:none !important;
+  }
+}
+
+@media print{
+  .variance-report{background:#fff;}
+  .variance-report .page{box-shadow:none;border:none;margin:0;width:auto;min-height:auto;page-break-after:always;}
+  /* The cover is the one section that should FILL its page (footer pinned to
+   * the bottom), but at just under 11in so rounding can't spill it onto a
+   * second sheet. */
+  .variance-report .page.cover{height:10.6in;}
+  /* No forced break after the last section: it renders as a trailing blank
+   * page in the printout. */
+  .variance-report .page:last-child{page-break-after:auto;}
+  .variance-report, .variance-report *{-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+
+  /* Tighten vertical rhythm so each fixed-layout section fits one 11in page
+   * with real data volumes. The screen layout leaves <0.05in of headroom;
+   * with realistic row counts (10 movers) section 02 overflowed by ~0.4in,
+   * spilling a page that contained nothing but its own running footer. The
+   * !important on padding-top beats the sections' inline paddingTop. */
+  .variance-report .pad{padding-top:0.3in !important;padding-bottom:0.25in;}
+  .variance-report .panel{margin-bottom:10px;padding:10px 16px;}
+  .variance-report .kpis{margin-bottom:10px;}
+  .variance-report .twocol{margin-bottom:10px;}
+  .variance-report .conc{margin-bottom:10px;}
+  .variance-report thead th{padding:6px 10px;}
+  .variance-report tbody td{padding:5px 10px;}
+  .variance-report .caveats{line-height:1.4;padding:10px 14px;}
+
+  /* If a section still outgrows its page (the 49-row watchlist legitimately
+   * does), fragment at block/row boundaries, never inside them. */
+  .variance-report .panel, .variance-report .kpi, .variance-report .bottomline,
+  .variance-report .caveats, .variance-report .demo-notice{break-inside:avoid;}
+  .variance-report tr{break-inside:avoid;}
+}

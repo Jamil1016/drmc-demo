@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 304 80" role="img" aria-label="Example Co">
+  <rect x="6" y="8" width="64" height="64" rx="16" fill="none" stroke="#14213d" stroke-width="6"/>
+  <path d="M26 26h24M26 40h16M26 54h24" stroke="#14213d" stroke-width="7" stroke-linecap="round"/>
+  <text x="88" y="52" font-family="Arial, Helvetica, sans-serif" font-size="34" font-weight="700" letter-spacing="3" fill="#14213d">EXAMPLE CO</text>
+</svg>

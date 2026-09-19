@@ -1,0 +1,151 @@
+/* app/(app)/hr/variance/variance.css
+ *
+ * Chart/panel/legend/rank/daylist/toggle styling plus the console/rail layout
+ * of the Hours Analysis dashboard. Every
+ * selector is namespaced under `.variance-page` so these rules cannot leak
+ * into other HR pages.
+ *
+ * The dashboard's own short vars (--mut, --line, --panel, --red, --reddk,
+ * --under) are not global tokens here, so they are aliased below to this
+ * app's existing design tokens where an equivalent already exists (--muted,
+ * --rule, --card), and to literal hex values where it
+ * doesn't (--red, --reddk, --under have no app-wide equivalent). These
+ * aliases use NEW custom-property names, so they never redefine/override the
+ * app's global --muted/--rule/--card/--ink/--accent/--ok tokens for sibling
+ * components (PageHeader, VarianceControls, KpiBand) that also live inside
+ * `.variance-page`.
+ */
+.variance-page {
+  --panel: var(--card, #ffffff);
+  --line: var(--rule, #e5e7eb);
+  --mut: var(--muted, #6b7280);
+  --red: #c9564a;
+  --reddk: #a83226;
+  --under: #5b8def;
+}
+
+/* ---- KPI cards (Option 3 style): gradient tiles, big value ---- */
+.variance-page .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+.variance-page .kpi { background: linear-gradient(135deg, #12305e, #155e63); color: #fff; border-radius: 13px; padding: 14px 18px; box-shadow: var(--shadow-card, 0 6px 20px rgba(15, 23, 42, 0.06)); }
+.variance-page .kpi .k { font-size: 10.5px; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.82; }
+.variance-page .kpi .v { font-size: 28px; font-weight: 780; margin-top: 4px; letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+.variance-page .kpi .v.warn { color: #ffd7c9; }
+.variance-page .kpi .v .alt { font-size: 14px; font-weight: 600; opacity: 0.85; letter-spacing: 0; }
+.variance-page .kpi .d { font-size: 11px; opacity: 0.72; margin-top: 2px; }
+@media (max-width: 720px) { .variance-page .kpis { grid-template-columns: 1fr; } }
+
+/* ---- Option 3 console: equal-height left/right columns ---- */
+.variance-page .console { display: grid; grid-template-columns: 1.55fr .9fr; gap: 14px; align-items: stretch; }
+.variance-page .left { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+.variance-page .right { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+@media (max-width: 1040px) {
+  .variance-page .console { grid-template-columns: 1fr; }
+  .variance-page .rail { flex: 0 0 auto; height: 440px; }
+}
+
+/* ---- panel chrome ---- */
+.variance-page .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+.variance-page .panel h3 { margin: 0 0 2px; font-size: 13px; }
+.variance-page .panel .ph-sub { margin: 0 0 12px; color: var(--mut); font-size: 11.5px; }
+.variance-page .panel .hrow { display: flex; align-items: flex-start; gap: 10px; justify-content: space-between; }
+.variance-page .panel .sub { margin: 2px 0 0; color: var(--mut); font-size: 11.5px; max-width: 60ch; }
+/* Timer-rollup refreshing guard: shown in place of the console when the timer
+   MV is empty (coverage would be blank across the board). */
+.variance-page .timer-refreshing { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 8px; padding: 40px 24px; }
+.variance-page .timer-refreshing h3 { font-size: 15px; }
+.variance-page .timer-refreshing .sub { font-size: 12.5px; }
+.variance-page .timer-refreshing .spin { width: 26px; height: 26px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: variance-spin 0.8s linear infinite; }
+@keyframes variance-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .variance-page .timer-refreshing .spin { animation: none; } }
+/* Inline "refreshing" badge shown when a background tick lands in an empty-MV
+   window: keep it pill-sized (don't let the flex column stretch it full-width). */
+.variance-page .variance-refresh-badge { align-self: flex-start; }
+/* Single-member box plot at the top of the focus rail's person state. */
+.variance-page .member-box { margin: 4px 0 10px; }
+.variance-page .member-box .mb-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 2px; }
+.variance-page .member-box .mb-title { font-size: 11.5px; font-weight: 600; color: var(--ink); }
+.variance-page .member-box .mb-sub { font-size: 9.5px; color: var(--mut); }
+.variance-page .row-head { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+
+/* ---- metric / column toggles ---- */
+.variance-page .metricToggle { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; margin-left: auto; }
+.variance-page .metricToggle button { border: 0; background: #fff; padding: 5px 10px; font-size: 11px; color: var(--mut); cursor: pointer; }
+.variance-page .metricToggle button.on { background: var(--accent); color: #fff; }
+
+/* ---- heatmap cells ---- */
+.variance-page .cell { cursor: pointer; stroke: #fff; stroke-width: 2; }
+.variance-page .cell:hover { stroke: #111; stroke-width: 1.5; }
+.variance-page .cell.partial { opacity: .4; }
+
+/* ---- box plot / dot chart ---- */
+.variance-page .boxg { cursor: pointer; }
+.variance-page .boxg:hover rect { stroke-width: 2; }
+.variance-page .dot { cursor: pointer; }
+
+/* ---- expand button (trend card) ---- */
+.variance-page .expandbtn { border: 1px solid var(--line); background: #fff; border-radius: 8px; width: 30px; height: 28px; cursor: pointer; color: var(--mut); font-size: 14px; line-height: 1; flex-shrink: 0; }
+.variance-page .expandbtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---- trend expand modal ---- */
+.variance-page .modal-bg { position: fixed; inset: 0; background: rgba(17, 24, 39, .45); display: flex; align-items: center; justify-content: center; z-index: 80; padding: 20px; }
+.variance-page .modal { background: #fff; border-radius: 14px; width: min(800px, 94vw); padding: 20px 22px; box-shadow: 0 24px 70px rgba(0, 0, 0, .28); }
+.variance-page .modal .mh { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
+.variance-page .modal h2 { font-size: 16px; margin: 0; font-weight: 700; color: var(--ink); }
+.variance-page .modal .msub { color: var(--mut); font-size: 12px; margin: 3px 0 14px; }
+.variance-page .modal .close { cursor: pointer; color: var(--mut); font-size: 22px; line-height: 1; border: 0; background: none; }
+
+/* ---- legend ---- */
+.variance-page .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11px; color: var(--mut); margin-top: 10px; }
+.variance-page .lg { display: inline-flex; align-items: center; gap: 5px; }
+.variance-page .sw { width: 11px; height: 11px; border-radius: 3px; display: inline-block; }
+
+/* ---- breadcrumb ---- */
+.variance-page .crumb { display: flex; align-items: center; gap: 6px; font-size: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+.variance-page .crumb a { color: var(--accent); cursor: pointer; }
+.variance-page .crumb span.sep { color: #c7cdd6; }
+.variance-page .crumb b { color: var(--ink); }
+
+/* ---- persistent right rail ---- */
+.variance-page .rail { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 15px 16px; flex: 1 1 auto; min-height: 260px; display: flex; flex-direction: column; overflow: hidden; }
+.variance-page .rhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.variance-page .rhead h3 { margin: 0; font-size: 13.5px; font-weight: 700; }
+.variance-page .rsub { margin: 2px 0 12px; color: var(--mut); font-size: 11.5px; }
+
+/* ---- ranked list (top offenders / group) ---- */
+.variance-page .rank { display: flex; flex-direction: column; gap: 6px; flex: 1 1 0; overflow-y: auto; min-height: 0; padding-right: 3px; margin-top: 0; }
+.variance-page .rank.fill { overflow: hidden; padding-right: 0; gap: 5px; }
+.variance-page .rank.fill .rankrow { flex: 1 1 0; min-height: 30px; }
+.variance-page .rankrow {
+  display: grid; grid-template-columns: 20px 26px 1fr auto auto; align-items: center; gap: 9px;
+  padding: 7px 9px; border: 1px solid var(--line); border-radius: 10px; cursor: pointer; background: #fff;
+}
+.variance-page .rankrow:hover { border-color: var(--accent); background: #f7faff; }
+.variance-page .rankrow .rk { font-size: 11px; color: #9ca3af; text-align: right; }
+.variance-page .rankrow .av { width: 26px; height: 26px; border-radius: 50%; background: #eef1f6; color: #4b5563; font-size: 10.5px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.variance-page .rankrow .nm { min-width: 0; }
+.variance-page .rankrow .nm .n { font-weight: 650; font-size: 12.5px; line-height: 1.2; }
+.variance-page .rankrow .nm .s { color: var(--mut); font-size: 10.5px; }
+.variance-page .rankrow .val { font-weight: 750; font-size: 13px; }
+.variance-page .showall { margin-top: 9px; border: 1px solid var(--line); background: #fff; border-radius: 8px; padding: 7px; font-size: 11.5px; color: var(--accent); cursor: pointer; font-family: inherit; flex-shrink: 0; }
+.variance-page .showall:hover { background: var(--accent-wash, #eaf1ff); border-color: var(--accent); }
+
+/* ---- pills ---- */
+.variance-page .pill { font-size: 10.5px; padding: 2px 7px; border-radius: 20px; font-weight: 600; white-space: nowrap; }
+.variance-page .pill.red { background: #fbeae7; color: var(--reddk); }
+.variance-page .pill.amber { background: #fdf3e0; color: #9a6a1c; }
+.variance-page .pill.ok { background: #e9f4ee; color: #2f6b4c; }
+.variance-page .pill.under { background: #eaf1fd; color: #2f5bb0; }
+
+/* ---- day list (person level) ---- */
+.variance-page .daylist { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; flex: 1 1 0; min-height: 0; overflow: auto; }
+.variance-page .dayrow { display: grid; grid-template-columns: 52px 1fr auto; gap: 10px; align-items: center; padding: 7px 9px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; background: #fff; }
+.variance-page .dayrow:hover { border-color: var(--accent); background: #f7faff; }
+.variance-page .dayrow.br { border-left: 3px solid var(--red); }
+.variance-page .dayrow .dt { font-size: 11.5px; color: #374151; font-variant-numeric: tabular-nums; }
+/* coverage bar: track = stated hours, green fill = worked, remainder = unworked gap */
+.variance-page .cov { display: flex; align-items: center; min-width: 0; }
+.variance-page .cov-track { height: 13px; border-radius: 7px; overflow: hidden; min-width: 4px; }
+.variance-page .cov-fill { height: 100%; background: #5aa17f; border-radius: 7px 0 0 7px; }
+.variance-page .dayrow .dv { display: flex; flex-direction: column; text-align: right; font-size: 11px; font-variant-numeric: tabular-nums; line-height: 1.25; }
+.variance-page .dayrow .dv .dv-hrs { color: #6b7280; }
+.variance-page .dayrow .dv .dv-gap { font-weight: 700; }
