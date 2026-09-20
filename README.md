@@ -7,7 +7,7 @@ approval, how fast it gets approved, and whether the hours people state match
 the hours their timers recorded. This repository is a working copy of that app
 that anyone can run and click through.
 
-This is a sanitized public demo of DRMC, an internal workforce report-compliance platform I designed and built. It contains a slice of the real application (directory, approvals with durable bulk approve, hours analysis) running in a permanent demo mode. Every person, team, client and number is invented, policy thresholds have been changed, integrations are simulated, and the features that encode HR policy or send email have been removed.
+This is a sanitized public demo of DRMC, an internal workforce report-compliance platform I designed and built. It contains a slice of the real application (directory, approvals with durable bulk approve, DR monitoring, hours analysis, activity log) running in a permanent demo mode. Every person, team, client and number is invented, policy thresholds have been changed, integrations are simulated, and the features that encode HR policy or send email have been removed.
 
 Stack: Next.js 16 (App Router, server components and server actions), React 19,
 Supabase (Postgres + Auth), Tailwind CSS 4, TypeScript.
@@ -22,7 +22,9 @@ Supabase (Postgres + Auth), Tailwind CSS 4, TypeScript.
 | `/approvals` | The awaiting-approval queue, oldest first, with wait-time tiers and the backlog per approver group. |
 | `/approvals/browse` | The approval grid: infinite scroll, sortable and filterable column headers, a report detail drawer (requirements, a Gantt of the day's timer entries, attachment thumbnails), CSV / Excel exports that stream with progress, and **bulk approve**. |
 | `/approvals/scorecard` | Approval performance per approver group, with a drill-down panel. |
+| `/hr` | DR Monitoring: filing compliance for a date range. On-time rate, late and missing reports, filing lag and high-variance counts with a delta against the previous period; a late + missing rate and a filing-speed bar per day (days still inside the filing window are hatched); the late rate per group; the unfiled backlog and the overdue approvals as of now, aged into buckets; and approval compliance per week. Every figure drills into the page that lists it. |
 | `/hr/variance` | Hours Analysis: a drillable heatmap of stated vs timed hours, box plots per member, a trend, a focus panel, a health-gated live refresh, and a print report at `/hr/variance/report`. |
+| `/activity` | The activity log: who signed in and who approved what, with KPIs, day / week / month series, a filterable feed with keyset paging, the most active approvers and the top failure reasons. It starts with two weeks of invented history; your own approves (and any failures from a simulated outage) land in it as you go. |
 
 ### Try the durable bulk approve
 
@@ -132,7 +134,7 @@ an administrator preview the app as another user, read-only:
 extends the same pattern into `assertMutationAllowed(kind)`. Visitors share one
 account, so the set of things that can change data is a closed list
 (`lib/demo/mutations.ts`): approve, start a batch, process a batch, retry a
-batch, and their audit rows. There is no persisted free text, no upload and no
+batch, and their audit rows (plus one audit row per demo sign-in). There is no persisted free text, no upload and no
 settings page. Batch creation is rate limited in Postgres (200 reports per
 batch, 10 batches per 10 minutes across all visitors).
 
@@ -142,10 +144,10 @@ batch, 10 batches per 10 minutes across all visitors).
 | --- | --- |
 | Compliance review, infraction and habitual-infraction rules, incident-report workflow | They encode HR policy. |
 | Member explanations, the public explain form, file uploads | Policy workflow, and visitors must not be able to persist text or files. |
-| DR Monitoring (late / missing / tardy / idle-gap flags), HR dashboard | Built on tardiness and filing policy flags; its RPCs could not be re-implemented faithfully from the callers within reason. |
+| The report-review table behind DR Monitoring (tardy, idle-gap and clock-in flags, follow-up statuses) | Built on tardiness policy flags and free-text follow-up notes. The dashboard itself is here at `/hr`, on the late and missing rules only, with its aggregates re-implemented in `supabase/schema.sql`; its figures drill into the approval grid instead. |
 | Revenue lens, rate and pay-period logic | Commercial data and pay rules. |
 | All email: reminders, scheduled extracts, weekly member packs, mailbox OAuth, the four cron routes | Nothing may be sent. There is no mail transport in the dependency tree. |
-| Users and access, org, activity log, settings, approver overrides, feedback tickets, employee create / edit | Administration and free-text writes; not part of the slice. |
+| Users and access, org, settings, approver overrides, feedback tickets, employee create / edit | Administration and free-text writes; not part of the slice. |
 | The per-user PM API credential form | A visitor could type a real password into it. The demo user is treated as already connected. |
 | Server-side PDF rendering with headless Chromium | Replaced by the browser print view. |
 | Presence, the daily "app opened" audit ping | Realtime and writes that are not approvals. |
@@ -153,7 +155,9 @@ batch, 10 batches per 10 minutes across all visitors).
 
 Changed rather than removed: the hours-variance breach line, the report filing
 window and the approval wait tiers use invented numbers, and the approval
-deadline is a simple "within 2 days of submission" rule invented for the demo.
+deadline is a simple "within 2 days of submission" rule invented for the demo
+(so approval compliance is graded per work week, not per pay period). The
+activity log is open to the demo's `manager` role rather than administrators only.
 
 ## Run it yourself
 

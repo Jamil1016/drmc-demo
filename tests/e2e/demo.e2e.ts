@@ -41,11 +41,11 @@ test("sign-in page: real design, demo banner, Enter demo instead of single sign-
 test("navigation only offers routes that exist; removed routes are 404", async ({ page }) => {
   await page.goto("/");
   const hrefs = await page.locator("aside nav a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
-  expect(hrefs).toEqual(["/", "/directory", "/approvals", "/approvals/scorecard", "/approvals/browse", "/hr/variance"]);
+  expect(hrefs).toEqual(["/", "/directory", "/approvals", "/approvals/scorecard", "/approvals/browse", "/hr", "/hr/variance", "/activity"]);
   for (const href of hrefs) expect((await page.request.get(href!)).status(), href!).toBe(200);
   const removed = [
-    "/hr", "/hr/reports", "/hr/compliance", "/hr/explanations", "/hr/approver-overrides", "/org", "/users",
-    "/activity", "/settings", "/settings/tickets", "/employees/260001/edit",
+    "/hr/reports", "/hr/compliance", "/hr/explanations", "/hr/approver-overrides", "/org", "/users",
+    "/settings", "/settings/tickets", "/employees/260001/edit",
     "/api/cron/report-reminders", "/api/cron/dr-extract", "/api/cron/member-weekly", "/api/cron/attachment-warm",
     "/api/gmail/connect", "/api/gmail/callback", "/auth/callback", "/hr/variance/report/pdf", "/hr/member-week",
     "/hr/explain", "/api/export/review", "/api/attachments/batch",
@@ -120,6 +120,77 @@ test("hours analysis: heatmap, the group with a story, print view", async ({ pag
   await expect(page.locator("svg").first()).toBeVisible();
   await page.goto("/hr/variance/report");
   await expect(page.getByText(/Demo data/).first()).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test("DR monitoring: KPI band, both backlogs, daily trends, group rates, weekly approval compliance", async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto("/hr");
+  await expect(page.getByRole("heading", { name: "DR Monitoring" })).toBeVisible();
+  for (const label of ["On-time filing", "Late filings", "Missing reports", "Median filing lag", "High variance"]) {
+    await expect(page.locator(".kpi-tile", { hasText: label })).toBeVisible();
+  }
+  await expect(page.locator(".kpi-tile", { hasText: "On-time filing" }).locator(".kpi-tile-value")).toHaveText(/^\d+(\.\d)?%$/);
+  // Thirty days of bars in each daily chart, and a delta against the previous period.
+  await expect(page.getByText("Late + missing rate per day")).toBeVisible();
+  expect(await page.locator("a.trend-day").count()).toBeGreaterThanOrEqual(56);
+  await expect(page.locator(".kpi-tile-delta").first()).toBeVisible();
+  await expect(page.getByText("Unfiled backlog · as of now (all dates)")).toBeVisible();
+  expect(await page.getByTestId("backlog-oldest").locator("li").count()).toBeGreaterThan(0);
+  await expect(page.getByText("Overdue approvals · as of now")).toBeVisible();
+  await expect(page.locator(".group-rate-row")).toHaveCount(4);
+  await expect(page.getByText("Approval compliance per week")).toBeVisible();
+  await expect(page.getByText(/Last week \d+% on time/)).toBeVisible();
+  // Nothing from the pages this build leaves out.
+  await expect(page.locator('a[href^="/hr/reports"], a[href^="/hr/compliance"], a[href^="/hr/explanations"]')).toHaveCount(0);
+
+  // A group row drills into that group's reports; clearing the range shows all dates.
+  await page.locator(".group-rate-row").first().click();
+  await expect(page).toHaveURL(/\/approvals\/browse\?.*carrierGroup=/);
+  await page.goto("/hr?range=all");
+  await expect(page.getByRole("heading", { name: "DR Monitoring" })).toBeVisible();
+  await expect(page.locator(".kpi-tile-delta")).toHaveCount(0); // no "previous period" for all dates
+  expect(errors).toEqual([]);
+});
+
+test("activity: seeded history, filters, and a visitor's own approve lands in the log", async ({ page }) => {
+  const errors = watchErrors(page);
+  await sql("select drmc_demo.reset_demo()");
+  await page.goto("/activity");
+  await expect(page.getByRole("heading", { name: "Activity" })).toBeVisible();
+  for (const label of ["Logins", "Active users", "Approvals in-app", "Failure rate"]) {
+    await expect(page.locator(".kpi-tile", { hasText: label }).first()).toBeVisible();
+  }
+  const seeded = (await sql<{ n: number }>("select count(*)::int n from drmc_app.hr_audit_log"))[0].n;
+  await expect(page.locator("table.data-table tbody tr")).toHaveCount(seeded);
+  await expect(page.getByText("Most active approvers")).toBeVisible();
+  await expect(page.getByText(/No in-app failures/)).toBeVisible();
+
+  await page.getByLabel("Action").selectOption("approval.bulk_approve");
+  await expect(page).toHaveURL(/action=approval\.bulk_approve/);
+  const bulk = (await sql<{ n: number }>("select count(*)::int n from drmc_app.hr_audit_log where action = 'approval.bulk_approve'"))[0].n;
+  await expect(page.locator("table.data-table tbody tr")).toHaveCount(bulk);
+  await expect(page.locator("table.data-table tbody tr").first()).toContainText(/\d+ of \d+ approved/);
+  await page.getByRole("button", { name: "week" }).click();
+  await expect(page).toHaveURL(/group=week/);
+
+  // Approve one report from its detail drawer, then find it in the log under the demo user.
+  const [waiting] = await sql<{ name: string }>(
+    `select e.report_display_name as name from drmc_demo.daily_report r join drmc_demo.employee e using (emp_id)
+      where r.seed_status = 'submitted' and r.assigned_approver is not null order by r.work_date desc, r.task_did limit 1`);
+  await page.goto(`/approvals/browse?search=${encodeURIComponent(waiting.name.split(" ")[1])}&status=submitted`);
+  await page.getByText(waiting.name).first().click();
+  await page.getByRole("button", { name: "Approve", exact: true }).first().click();
+  await expect(page.getByText("Approve in the PM API")).toBeVisible();
+  await page.getByRole("button", { name: "Approve", exact: true }).last().click();
+  await expect.poll(async () =>
+    (await sql<{ n: number }>("select count(*)::int n from drmc_app.hr_audit_log where actor_email = 'demo@example.com' and action = 'approval.approve'"))[0].n,
+  { timeout: 60_000 }).toBe(1);
+  await page.goto("/activity?actor=demo@example.com");
+  await expect(page.locator("table.data-table tbody tr")).toHaveCount(1);
+  await expect(page.locator("table.data-table tbody tr").first()).toContainText("Approved reports");
+  await expect(page.locator("table.data-table tbody tr").first()).toContainText("1 approved");
+  await sql("select drmc_demo.reset_demo()");
   expect(errors).toEqual([]);
 });
 

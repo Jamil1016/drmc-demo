@@ -19,6 +19,8 @@ import { getVarianceRows } from "@/lib/hr/queries/variance-queries";
 import { getTimerRollupHealth } from "@/lib/hr/queries/timer-rollup-health";
 import { getLastDataRefresh } from "@/lib/hr/queries/data-freshness";
 import { listDivisionOptions } from "@/lib/hr/queries/division-options";
+import { getReviewSummary, getReviewBacklog, getApprovalCompliance } from "@/lib/hr/queries/review-queries";
+import { queryActivityLog, getActivityDashboard } from "@/lib/hr/queries/activity-queries";
 import { browseExportRows, browseTimerExportRows, BROWSE_EXPORT_HEADERS, TIMER_EXPORT_HEADERS } from "@/lib/hr/export/browse-export";
 import { logActivity } from "@/lib/hr/audit";
 import {
@@ -207,6 +209,144 @@ test("hours analysis: variance rows, the group with a story, rollup health", asy
   const health = await getTimerRollupHealth();
   expect(health.empty).toBe(false);
   expect(health.maxWorkDay).not.toBeNull();
+});
+
+test("DR monitoring: the filing view grades every due day by the 48 h / 60 h rule", async () => {
+  await withPg(async (c) => {
+    const one = async (q: string) => (await c.query(q)).rows[0].n as number;
+    const v = "drmc_analytics.v_filing_compliance";
+    expect(await one(`select count(*)::int n from ${v}`)).toBeGreaterThan(2000);
+    // The deadline is clock-in + 48 h, 60 h for a Friday work date.
+    expect(await one(`select count(*)::int n from ${v}
+      where deadline_et <> clock_in_et + case when work_dow = 5 then interval '60 hours' else interval '48 hours' end`)).toBe(0);
+    // A day with timers but no report row is due too, on working days only, and never for a manager.
+    expect(await one(`select count(*)::int n from ${v} where task_did is null`)).toBeGreaterThan(10);
+    expect(await one(`select count(*)::int n from ${v} where task_did is null and work_dow not between 1 and 5`)).toBe(0);
+    expect(await one(`select count(*)::int n from ${v} f join drmc_demo.employee e using (emp_id) where e.position = 'Delivery Manager'`)).toBe(0);
+    // Late and missing are exclusive, and both need a matured day.
+    expect(await one(`select count(*)::int n from ${v} where (is_late and is_missing) or ((is_late or is_missing) and not is_matured)`)).toBe(0);
+    expect(await one(`select count(*)::int n from ${v} where is_missing and days_overdue is null`)).toBe(0);
+    // One row per person per day.
+    expect(await one(`select count(*)::int n from (select 1 from ${v} group by emp_id, work_date having count(*) > 1) d`)).toBe(0);
+  });
+});
+
+test("DR monitoring: summary, backlog and approver compliance RPCs agree with the views", async () => {
+  const to = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+  const s = await getReviewSummary(from, to);
+  await withPg(async (c) => {
+    const direct = (await c.query(
+      `select (count(*) filter (where is_matured))::int matured, (count(*) filter (where is_late))::int late,
+              (count(*) filter (where is_missing))::int missing
+         from drmc_analytics.v_filing_compliance where work_date between $1 and $2`, [from, to])).rows[0];
+    expect({ matured: s.kpis.matured, late: s.kpis.late, missing: s.kpis.missing }).toEqual(direct);
+  });
+  expect(s.kpis.matured).toBeGreaterThan(500);
+  expect(s.kpis.late).toBeGreaterThan(0);
+  expect(s.kpis.onTimePct).toBeGreaterThan(80);
+  expect(s.kpis.medianLagHours).toBeGreaterThan(8);
+  expect(s.kpis.p90LagHours!).toBeGreaterThanOrEqual(s.kpis.medianLagHours!);
+  expect(s.kpis.highVariance).toBeGreaterThan(0);
+  // One trend point per calendar day, in order; the day sums are the KPIs.
+  expect(s.trend.length).toBeGreaterThanOrEqual(28);
+  expect(s.trend.map((t) => t.d)).toEqual([...s.trend.map((t) => t.d)].sort());
+  expect(s.trend.reduce((n, t) => n + t.late, 0)).toBe(s.kpis.late);
+  expect(s.trend.reduce((n, t) => n + t.missing, 0)).toBe(s.kpis.missing);
+  expect(s.trend.every((t) => t.onTime + t.late === t.filedN)).toBe(true);
+  expect(s.trend.some((t) => t.matured === null)).toBe(true); // weekends: nothing due
+  expect(s.groups.map((g) => g.carrierGroup).sort()).toEqual([...PRODUCTION_CARRIER_GROUPS].sort());
+  expect(s.groups.map((g) => g.latePct)).toEqual([...s.groups.map((g) => g.latePct)].sort((a, b) => b - a));
+
+  // "All dates" queries from a far floor; the trend is clipped to the data.
+  const all = await getReviewSummary("2000-01-01", to);
+  expect(all.kpis.matured).toBeGreaterThan(s.kpis.matured);
+  expect(all.trend.length).toBeLessThan(120);
+  // A range with no data is empty, not an error.
+  const none = await getReviewSummary("2001-01-01", "2001-01-31");
+  expect(none.kpis).toMatchObject({ matured: 0, late: 0, missing: 0, onTimePct: null, medianLagHours: null });
+  expect(none.trend).toEqual([]);
+
+  const b = await getReviewBacklog();
+  expect(b.total).toBe(all.kpis.missing);
+  expect(b.buckets.map((x) => x.label)).toEqual(["0-2d", "3-5d", "6-10d", "11-20d", "21d+"]);
+  expect(b.buckets.reduce((n, x) => n + x.n, 0)).toBe(b.total);
+  expect(b.oldest.length).toBe(Math.min(8, b.total));
+  expect(b.oldest[0].daysOverdue).toBe(b.oldestDays);
+  expect(b.oldest.every((o) => o.employeeName && o.workDate)).toBe(true);
+
+  const a = await getApprovalCompliance();
+  expect(a.periods.length).toBe(8);
+  expect(a.periods.map((p) => p.periodStart)).toEqual([...a.periods.map((p) => p.periodStart)].sort());
+  expect(a.periods.every((p) => new Date(`${p.periodStart}T12:00:00Z`).getUTCDay() === 1)).toBe(true);
+  expect(a.periods[a.periods.length - 1].deadline >= a.today).toBe(true); // the current week is in flight
+  expect(a.periods[0].deadline < a.today).toBe(true);
+  expect(a.periods[0].onTime).toBeGreaterThan(a.periods[0].late);
+  const o = a.overdue;
+  expect(o.b1_2 + o.b3_5 + o.b6_10 + o.b11p).toBe(o.total);
+  expect(o.total).toBeGreaterThan(0);
+  await withPg(async (c) => {
+    const waiting = (await c.query(
+      `select (count(*) filter (where pending_wait_days > 2))::int past, (count(*) filter (where pending_wait_days <= 2))::int inside
+         from drmc_analytics.v_daily_report_approvals where is_awaiting_approval`)).rows[0];
+    expect(o.total + o.filedLatePending).toBe(waiting.past);
+    expect(a.dueSoon).toBeLessThanOrEqual(waiting.inside);
+    expect(a.dueSoon).toBeGreaterThan(0);
+  });
+});
+
+test("activity: seeded history, feed filters with keyset paging, dashboard RPC", async () => {
+  const to = new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 29 * 86_400_000).toISOString().slice(0, 10);
+  const seeded = await withPg(async (c) => (await c.query(
+    `select count(*)::int n, (count(*) filter (where actor_email = $1))::int demo,
+            (count(*) filter (where created_at > now()))::int future,
+            count(distinct actor_email)::int actors, count(distinct action)::int actions,
+            coalesce(sum((detail ->> 'approved')::int), 0)::int approved
+       from drmc_app.hr_audit_log`, [DEMO])).rows[0]);
+  expect(seeded.n).toBeGreaterThanOrEqual(30);
+  expect(seeded.n).toBeLessThanOrEqual(70);
+  expect(seeded).toMatchObject({ demo: 0, future: 0, actors: 5, actions: 3 });
+
+  // Newest first, and the keyset cursor walks the whole log without overlap.
+  const page1 = await queryActivityLog({ limit: 20 });
+  expect(page1.length).toBe(20);
+  expect(page1.map((r) => r.id)).toEqual([...page1.map((r) => r.id)].sort((x, y) => y - x));
+  const page2 = await queryActivityLog({ limit: 100, before: page1[page1.length - 1].id });
+  expect(page1.length + page2.length).toBe(seeded.n);
+  expect(page2.every((r) => r.id < page1[page1.length - 1].id)).toBe(true);
+  const bulk = await queryActivityLog({ limit: 100, action: "approval.bulk_approve" });
+  expect(bulk.length).toBeGreaterThan(0);
+  expect(bulk.every((r) => r.action === "approval.bulk_approve" && r.entity === "approval_batch" && r.entity_id)).toBe(true);
+  const one = await queryActivityLog({ limit: 100, actor: "priya" });
+  expect(one.length).toBeGreaterThan(0);
+  expect(one.every((r) => r.actor_email === "priya.everhart@example.com")).toBe(true);
+  expect(await queryActivityLog({ limit: 100, from: "2001-01-01", to: "2001-01-02" })).toEqual([]);
+
+  const d = await getActivityDashboard(from, to, "day");
+  expect(d.kpis).toEqual({
+    logins: (await queryActivityLog({ limit: 100, action: "auth.sign_in" })).length,
+    active_users: 5, approvals: seeded.approved, failures: 0,
+  });
+  expect(d.logins_series.length).toBe(d.approvals_series.length);
+  expect(d.logins_series.reduce((n, p) => n + p.n, 0)).toBe(d.kpis.logins);
+  expect(d.approvals_series.reduce((n, p) => n + p.n, 0)).toBe(d.kpis.approvals);
+  expect(d.top_approvers.length).toBe(5);
+  expect(d.top_approvers.reduce((n, p) => n + p.n, 0)).toBe(d.kpis.approvals);
+  expect(d.top_failures).toEqual([]);
+  // Coarser buckets hold the same totals; an unknown grouping falls back to days.
+  const w = await getActivityDashboard(from, to, "week");
+  expect(w.logins_series.length).toBeLessThan(d.logins_series.length);
+  expect(w.logins_series.reduce((n, p) => n + p.n, 0)).toBe(d.kpis.logins);
+  const odd = await getActivityDashboard(from, to, "decade" as never);
+  expect(odd.logins_series.length).toBe(d.logins_series.length);
+
+  // A visitor's own approve shows up in the KPIs and the leaderboard.
+  await logActivity({ actorEmail: DEMO, action: "approval.bulk_approve", entity: "approval_batch", entityId: "t", detail: { total: 500, approved: 497, failed: 3 } });
+  const after = await getActivityDashboard(from, to, "day");
+  expect(after.kpis).toMatchObject({ active_users: 6, approvals: seeded.approved + 497, failures: 3 });
+  expect(after.top_approvers[0]).toEqual({ email: DEMO, n: 497 });
+  await resetDemo();
 });
 
 test("exports: data rows and timer rows stream in header order", async () => {
