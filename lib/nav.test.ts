@@ -13,11 +13,13 @@ test("viewer and lead see Workspace + Compliance only", () => {
   expect(sectionLabels("lead")).toEqual(["Workspace", "Compliance"]);
 });
 
-test("manager and up also see HR with Hours Analysis", () => {
+test("manager and up also see HR (DR Monitoring, Hours Analysis) and Admin (Activity)", () => {
   for (const role of ["manager", "hr_staff", "super_admin"] as AppRole[]) {
-    expect(sectionLabels(role)).toEqual(["Workspace", "Compliance", "HR"]);
+    expect(sectionLabels(role)).toEqual(["Workspace", "Compliance", "HR", "Admin"]);
     const hr = navSectionsFor(role).find((s) => s.label === "HR")!;
-    expect(hr.items.map((i) => i.label)).toEqual(["Hours Analysis"]);
+    expect(hr.items.map((i) => i.label)).toEqual(["DR Monitoring", "Hours Analysis"]);
+    const admin = navSectionsFor(role).find((s) => s.label === "Admin")!;
+    expect(admin.items.map((i) => i.href)).toEqual(["/activity"]);
   }
 });
 

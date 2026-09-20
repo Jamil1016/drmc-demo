@@ -1,8 +1,10 @@
 "use server";
 
+import { after } from "next/server";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { authBypassEnabled, DEMO_USER_EMAIL, isDemoMode } from "@/lib/demo/mode";
+import { logActivity } from "@/lib/hr/audit";
 
 /** Where the demo user lands. Sent there directly (not through a second
  *  redirect) so the sign-in costs one hop. The demo user is a manager, whose
@@ -25,5 +27,13 @@ export async function enterDemo(): Promise<void> {
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithPassword({ email: DEMO_USER_EMAIL, password });
   if (error) fail(`Could not enter the demo: ${error.message}`);
+  // The sign-in lands in the activity log AFTER the response is sent, so the
+  // audit write never adds a database round trip to the visitor's first click.
+  after(() => logActivity({
+    actorEmail: DEMO_USER_EMAIL,
+    action: "auth.sign_in",
+    entity: "session",
+    detail: { outcome: "granted", role: "manager" },
+  }));
   redirect(DEMO_HOME);
 }
