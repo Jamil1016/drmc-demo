@@ -9,7 +9,8 @@
 --
 -- reset_demo() throws away everything visitors did (approvals, batches, audit
 -- rows) and reloads the invented data with dates relative to today, so the
--- approval queue always looks recent.
+-- approval queue always looks recent. It then writes two weeks of invented
+-- app activity (drmc_demo.load_activity) so the Activity page is never empty.
 --
 -- NIGHTLY RESET with pg_cron (run once, by hand, in the SQL editor; 19:20 UTC):
 --
@@ -33,6 +34,7 @@ begin
            drmc_app.hr_audit_log
            restart identity;
   perform drmc_demo.load_seed();
+  perform drmc_demo.load_activity();
 end;
 $$;
 

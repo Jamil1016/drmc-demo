@@ -676,6 +676,306 @@ as $$
 $$;
 
 -- -----------------------------------------------------------------------------
+-- DR monitoring: filing compliance
+-- -----------------------------------------------------------------------------
+
+-- One row per DUE work day: every daily report, plus every working day that has
+-- timer evidence but no report at all (the timers are the proof the day was
+-- worked, so leave and rest days are never flagged).
+--   deadline   = clock-in + 48 h (60 h for a Friday work date)
+--   matured    = the deadline has passed, so the day can be graded
+--   late       = filed after the deadline
+--   missing    = still not filed once the deadline has passed
+create or replace view drmc_analytics.v_filing_compliance as
+with due as (
+  select r.emp_id, r.work_date, r.task_did, r.clock_in_et, r.submitted_on_et
+    from drmc_demo.daily_report r
+  union all
+  select e.emp_id, t.work_day, null::text, f.first_start_et, null::timestamp
+    from drmc_analytics.mv_timer_day_rollup t
+    join drmc_demo.employee e on lower(e.email) = t.user_email
+    cross join lateral (
+      select min(x.start_time at time zone 'America/New_York') as first_start_et
+        from drmc_staging.stg_timer_activities_clean x
+       where lower(x.user_email) = t.user_email
+         and x.start_time >= (t.work_day::timestamp at time zone 'America/New_York')
+         and x.start_time <  ((t.work_day + 1)::timestamp at time zone 'America/New_York')
+    ) f
+   where extract(dow from t.work_day) between 1 and 5
+     and t.work_day < (now() at time zone 'America/New_York')::date
+     and not exists (select 1 from drmc_demo.daily_report r
+                      where r.emp_id = e.emp_id and r.work_date = t.work_day)
+)
+select
+  d.emp_id,
+  e.report_display_name                        as employee_name,
+  e.carrier_group,
+  d.work_date,
+  extract(dow from d.work_date)::int           as work_dow,
+  d.task_did,
+  d.clock_in_et,
+  d.submitted_on_et,
+  x.deadline_et,
+  (x.now_et >= x.deadline_et)                  as is_matured,
+  (d.submitted_on_et is not null)              as is_filed,
+  (d.submitted_on_et is not null and d.submitted_on_et > x.deadline_et) as is_late,
+  (d.submitted_on_et is null and x.now_et >= x.deadline_et)             as is_missing,
+  case when d.submitted_on_et is not null
+       then round((extract(epoch from (d.submitted_on_et - d.clock_in_et)) / 3600.0)::numeric, 1) end as filing_lag_hours,
+  case when d.submitted_on_et is null and x.now_et >= x.deadline_et
+       then (x.now_et::date - x.deadline_et::date) end                 as days_overdue
+from due d
+join drmc_demo.employee e using (emp_id)
+cross join lateral (
+  select d.clock_in_et + case when extract(dow from d.work_date) = 5
+                              then interval '60 hours' else interval '48 hours' end as deadline_et,
+         (now() at time zone 'America/New_York') as now_et
+) x;
+
+-- The DR monitoring dashboard for one work-date range: KPIs, a per-day trend and
+-- the late rate per group. Rates are computed on MATURED days only. The trend
+-- is clipped to the days the data covers, so an "all dates" range stays small.
+create or replace function drmc_analytics.review_summary(p_from date, p_to date)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with f as (
+    select c.* from drmc_analytics.v_filing_compliance c
+     where c.work_date between p_from and p_to
+  ),
+  kp as (
+    select (count(*) filter (where f.is_matured))::int                 as matured,
+           (count(*) filter (where f.is_late))::int                    as late,
+           (count(*) filter (where f.is_missing))::int                 as missing,
+           (count(*) filter (where f.is_matured and f.is_filed))::int  as filed_matured,
+           (percentile_cont(0.5) within group (order by f.filing_lag_hours) filter (where f.is_filed))::numeric as med,
+           (percentile_cont(0.9) within group (order by f.filing_lag_hours) filter (where f.is_filed))::numeric as p90
+    from f
+  ),
+  bounds as (
+    select greatest(p_from, (select min(r.work_date) from drmc_demo.daily_report r)) as d_from,
+           least(p_to, (now() at time zone 'America/New_York')::date)               as d_to
+  ),
+  days as (
+    select s::date as d
+    from bounds b, generate_series(b.d_from::timestamp, b.d_to::timestamp, interval '1 day') s
+    where b.d_from is not null and b.d_from <= b.d_to
+  ),
+  trend as (
+    select dd.d,
+           (count(f.emp_id) filter (where f.is_late))::int                    as late,
+           (count(f.emp_id) filter (where f.is_missing))::int                 as missing,
+           (count(f.emp_id) filter (where f.is_filed))::int                   as filed_n,
+           (count(f.emp_id) filter (where f.is_filed and not f.is_late))::int as on_time,
+           bool_and(f.is_matured)                                             as matured
+    from days dd
+    left join f on f.work_date = dd.d
+    group by dd.d
+  ),
+  grp as (
+    select f.carrier_group,
+           count(*)::int                                as n,
+           (count(*) filter (where f.is_late))::int     as late
+    from f
+    where f.is_matured and f.is_filed
+    group by f.carrier_group
+  )
+  select jsonb_build_object(
+    'kpis', (select jsonb_build_object(
+               'matured', kp.matured,
+               'late', kp.late,
+               'on_time_pct', case when kp.filed_matured > 0
+                                   then round(100.0 * (kp.filed_matured - kp.late) / kp.filed_matured, 1) end,
+               'missing', kp.missing,
+               'median_lag_hours', round(kp.med, 1),
+               'p90_lag_hours', round(kp.p90, 1),
+               'high_variance', (select count(*)::int
+                                   from drmc_analytics.v_daily_report_approvals a
+                                  where a.work_date between p_from and p_to
+                                    and a.coverage_pct <= 85))
+             from kp),
+    'trend', coalesce((select jsonb_agg(jsonb_build_object(
+                         'd', t.d, 'late', t.late, 'missing', t.missing,
+                         'filed_n', t.filed_n, 'on_time', t.on_time, 'matured', t.matured)
+                       order by t.d) from trend t), '[]'::jsonb),
+    'groups', coalesce((select jsonb_agg(jsonb_build_object(
+                          'carrier_group', g.carrier_group, 'n', g.n, 'late', g.late,
+                          'late_pct', round(100.0 * g.late / g.n, 1))
+                        order by (1.0 * g.late / g.n) desc, g.carrier_group)
+                        from grp g), '[]'::jsonb)
+  );
+$$;
+
+-- The unfiled pile as of now (no date range): total, the oldest, five age
+-- buckets by days past the filing deadline, and the oldest few rows to chase.
+create or replace function drmc_analytics.review_backlog()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with m as (
+    select c.* from drmc_analytics.v_filing_compliance c where c.is_missing
+  ),
+  b(ord, label, lo, hi) as (
+    values (1, '0-2d', 0, 2), (2, '3-5d', 3, 5), (3, '6-10d', 6, 10), (4, '11-20d', 11, 20), (5, '21d+', 21, 100000)
+  )
+  select jsonb_build_object(
+    'total', (select count(*)::int from m),
+    'oldest_days', (select max(m.days_overdue)::int from m),
+    'buckets', (select jsonb_agg(jsonb_build_object(
+                  'label', b.label,
+                  'n', (select count(*)::int from m where m.days_overdue between b.lo and b.hi))
+                order by b.ord) from b),
+    'oldest', coalesce((select jsonb_agg(jsonb_build_object(
+                          'employee_name', o.employee_name, 'carrier_group', o.carrier_group,
+                          'work_date', o.work_date, 'days_overdue', o.days_overdue)
+                        order by o.days_overdue desc, o.work_date, o.employee_name)
+                        from (select m.* from m order by m.days_overdue desc, m.work_date, m.employee_name limit 8) o),
+                       '[]'::jsonb)
+  );
+$$;
+
+-- Approver-side compliance, as of now. Same rules as approver_scorecard:
+-- on time = approved within 2 days of submission; late = approved later, or
+-- still waiting past 2 days; a report filed late is excluded from grading.
+--   periods  the last 8 work weeks (Monday start), oldest first. A week closes
+--            for grading two days after it ends; until then it is "in flight".
+--   overdue  every report waiting past the window right now, by days over.
+create or replace function drmc_analytics.approval_compliance()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  -- Named columns, not a.*: this CTE is read three times, so it is materialized,
+  -- and a.* would compute every column of the view for every report.
+  with base as (
+    select a.task_did, a.task_status, a.is_awaiting_approval, a.approval_latency_days, a.pending_wait_days,
+           date_trunc('week', a.work_date)::date as week_start,
+           (a.submitted_on_et is not null and a.clock_in_et is not null
+            and a.submitted_on_et > a.clock_in_et
+                + case when a.work_dow = 5 then interval '60 hours' else interval '48 hours' end) as filed_late
+    from drmc_analytics.v_daily_report_approvals a
+    where a.task_status in ('submitted', 'approved')
+  ),
+  today as (select (now() at time zone 'America/New_York')::date as d),
+  weeks as (
+    select (date_trunc('week', t.d)::date - 7 * n) as week_start
+    from today t, generate_series(0, 7) n
+  ),
+  periods as (
+    select w.week_start,
+           (count(b.task_did) filter (where not b.filed_late and b.task_status = 'approved' and b.approval_latency_days <= 2))::int as on_time,
+           (count(b.task_did) filter (where not b.filed_late
+                  and ((b.task_status = 'approved' and b.approval_latency_days > 2)
+                       or (b.is_awaiting_approval and b.pending_wait_days > 2))))::int as late,
+           (count(b.task_did) filter (where b.filed_late))::int as filed_late,
+           (count(b.task_did) filter (where not b.filed_late and b.is_awaiting_approval and b.pending_wait_days <= 2))::int as pending_not_due
+    from weeks w
+    left join base b on b.week_start = w.week_start
+    group by w.week_start
+  ),
+  od as (
+    select b.filed_late, (b.pending_wait_days - 2) as days_over
+    from base b
+    where b.is_awaiting_approval and b.pending_wait_days > 2
+  )
+  select jsonb_build_object(
+    'today', (select t.d from today t),
+    'periods', (select jsonb_agg(jsonb_build_object(
+                  'period_start', p.week_start, 'period_end', p.week_start + 6, 'deadline', p.week_start + 8,
+                  'on_time', p.on_time, 'late', p.late, 'filed_late', p.filed_late,
+                  'pending_not_due', p.pending_not_due)
+                order by p.week_start) from periods p),
+    'overdue', (select jsonb_build_object(
+                  'total', (count(*) filter (where not od.filed_late))::int,
+                  'oldest_days', (max(od.days_over) filter (where not od.filed_late))::int,
+                  'b1_2', (count(*) filter (where not od.filed_late and od.days_over between 1 and 2))::int,
+                  'b3_5', (count(*) filter (where not od.filed_late and od.days_over between 3 and 5))::int,
+                  'b6_10', (count(*) filter (where not od.filed_late and od.days_over between 6 and 10))::int,
+                  'b11p', (count(*) filter (where not od.filed_late and od.days_over >= 11))::int,
+                  'filed_late_pending', (count(*) filter (where od.filed_late))::int)
+                from od),
+    'due_soon', (select count(*)::int from base b
+                  where not b.filed_late and b.is_awaiting_approval and b.pending_wait_days <= 2)
+  );
+$$;
+
+-- -----------------------------------------------------------------------------
+-- Activity log dashboard
+-- -----------------------------------------------------------------------------
+
+-- App usage for one date range, from the audit log: KPIs, two bucketed series
+-- (day / week / month, on Asia/Manila calendar days), the most active approvers
+-- and the most common failure reasons (from the approve-attempt log). The series
+-- start is clipped to the first audit row, so a wide range stays small.
+create or replace function drmc_analytics.activity_dashboard(p_from date, p_to date, p_group text default 'day')
+returns jsonb
+language sql
+stable
+security definer
+set search_path = ''
+as $$
+  with u as (
+    select case when p_group in ('day', 'week', 'month') then p_group else 'day' end as unit
+  ),
+  log as (
+    select l.actor_email, l.action,
+           (l.created_at at time zone 'Asia/Manila')::date as d,
+           case when l.action like 'approval.%' and jsonb_typeof(l.detail -> 'approved') = 'number'
+                then (l.detail ->> 'approved')::int else 0 end as approved,
+           case when l.action like 'approval.%' and jsonb_typeof(l.detail -> 'failed') = 'number'
+                then (l.detail ->> 'failed')::int else 0 end as failed
+    from drmc_app.hr_audit_log l
+    where (l.created_at at time zone 'Asia/Manila')::date between p_from and p_to
+  ),
+  bounds as (
+    select greatest(p_from, (select min((l.created_at at time zone 'Asia/Manila')::date) from drmc_app.hr_audit_log l)) as d_from,
+           least(p_to, (now() at time zone 'Asia/Manila')::date) as d_to
+  ),
+  buckets as (
+    select distinct date_trunc(u.unit, s)::date as bucket
+    from u, bounds b, generate_series(b.d_from::timestamp, b.d_to::timestamp, interval '1 day') s
+    where b.d_from is not null and b.d_from <= b.d_to
+  ),
+  series as (
+    select k.bucket,
+           coalesce(sum(case when l.action = 'auth.sign_in' then 1 else 0 end), 0)::int as logins,
+           coalesce(sum(l.approved), 0)::int as approvals
+    from buckets k
+    cross join u
+    left join log l on date_trunc(u.unit, l.d::timestamp)::date = k.bucket
+    group by k.bucket
+  )
+  select jsonb_build_object(
+    'kpis', (select jsonb_build_object(
+               'logins', (count(*) filter (where log.action = 'auth.sign_in'))::int,
+               'active_users', count(distinct log.actor_email)::int,
+               'approvals', coalesce(sum(log.approved), 0)::int,
+               'failures', coalesce(sum(log.failed), 0)::int)
+             from log),
+    'logins_series', coalesce((select jsonb_agg(jsonb_build_object('bucket', s.bucket, 'n', s.logins) order by s.bucket) from series s), '[]'::jsonb),
+    'approvals_series', coalesce((select jsonb_agg(jsonb_build_object('bucket', s.bucket, 'n', s.approvals) order by s.bucket) from series s), '[]'::jsonb),
+    'top_approvers', coalesce((select jsonb_agg(jsonb_build_object('email', t.actor_email, 'n', t.n) order by t.n desc, t.actor_email)
+                                 from (select log.actor_email, sum(log.approved)::int as n
+                                         from log group by 1 having sum(log.approved) > 0
+                                        order by 2 desc, 1 limit 5) t), '[]'::jsonb),
+    'top_failures', coalesce((select jsonb_agg(jsonb_build_object('reason', t.reason, 'http_status', t.http_status, 'n', t.n) order by t.n desc, t.reason)
+                                from (select coalesce(k.error_reason, 'unknown') as reason, k.http_status, count(*)::int as n
+                                        from drmc_app.report_approval_log k
+                                       where not k.ok
+                                         and (k.approved_at at time zone 'Asia/Manila')::date between p_from and p_to
+                                       group by 1, 2 order by 3 desc, 1 limit 5) t), '[]'::jsonb)
+  );
+$$;
+
+-- -----------------------------------------------------------------------------
 -- Security: RLS everywhere, no policies, service_role only.
 -- -----------------------------------------------------------------------------
 do $$

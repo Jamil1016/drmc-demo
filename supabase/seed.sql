@@ -1,7 +1,7 @@
 -- =============================================================================
 -- DRMC demo: seed (idempotent). Defines drmc_demo.load_seed().
 --
--- Apply AFTER supabase/schema.sql. This file only DEFINES the loader;
+-- Apply AFTER supabase/schema.sql. This file only DEFINES the loaders;
 -- supabase/reset_demo.sql calls it. Everything it writes is INVENTED: people,
 -- teams, clients, sites, tasks and numbers. Nothing here references or alters
 -- any object outside the drmc_* schemas.
@@ -371,7 +371,46 @@ begin
 end;
 $$;
 
+-- Invented app activity for the last 14 days, so the Activity page has a history
+-- right after a reset: sign-ins, single approves and bulk approves by the four
+-- team leads and the second manager (never the demo user, whose rows are the
+-- visitor's own). Same rule as the loader: hashes of a stable key, no random().
+-- reset_demo() truncates the audit log first, then calls this.
+create or replace function drmc_demo.load_activity()
+returns void
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  insert into drmc_app.hr_audit_log (actor_email, action, entity, entity_id, detail, created_at)
+  select x.actor_email, x.action, x.entity, x.entity_id, x.detail, x.created_at
+  from (
+    select e.email as actor_email, k.key, a.action, a.entity,
+           case when a.action = 'approval.bulk_approve' then md5(k.key || 'batch')::uuid::text end as entity_id,
+           case a.action
+             when 'auth.sign_in' then jsonb_build_object('outcome', 'granted', 'role', case when e.position = 'Team Lead' then 'lead' else 'manager' end)
+             when 'approval.approve' then jsonb_build_object('approved', 1 + drmc_demo.h(k.key || 'n') % 4, 'failed', 0)
+             else jsonb_build_object('total', 8 + drmc_demo.h(k.key || 'n') % 23,
+                                     'approved', 8 + drmc_demo.h(k.key || 'n') % 23, 'failed', 0)
+           end as detail,
+           (((current_date - d.n)::timestamp
+             + make_interval(mins => a.base_min + drmc_demo.h(k.key || a.action) % 90)) at time zone 'America/New_York') as created_at
+    from generate_series(1, 14) d(n)
+    join drmc_demo.employee e on e.emp_id in ('260037', '260038', '260039', '260040', '260042')
+    cross join lateral (select 'ACT-' || e.emp_id || '-' || d.n as key) k
+    cross join (values ('auth.sign_in', 'session', 8 * 60, 0.50),
+                       ('approval.approve', 'report', 10 * 60, 0.30),
+                       ('approval.bulk_approve', 'approval_batch', 14 * 60, 0.12)) a(action, entity, base_min, share)
+    where extract(dow from current_date - d.n) between 1 and 5
+      and drmc_demo.u(k.key || a.action || 'on') < a.share
+  ) x
+  order by x.created_at, x.key;
+end;
+$$;
+
 -- Not callable through the API: drmc_demo is not exposed and nobody holds USAGE on it.
 revoke all on function drmc_demo.h(text) from public, anon, authenticated, service_role;
 revoke all on function drmc_demo.u(text) from public, anon, authenticated, service_role;
 revoke all on function drmc_demo.load_seed() from public, anon, authenticated, service_role;
+revoke all on function drmc_demo.load_activity() from public, anon, authenticated, service_role;
